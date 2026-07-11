@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude mcp *)",
+      "Bash(bun --version)",
+      "Bash(cd /d E:\\\\ITMS)",
+      "Bash(bunx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --turbopack --use-bun)",
+      "PowerShell(Remove-Item *)",
+      "Bash(echo \"exit: $?\")",
+      "PowerShell($mongo = Get-Command mongod -ErrorAction SilentlyContinue; if \\($mongo\\) { Write-Output \"mongod: $\\($mongo.Source\\)\" } else { Write-Output \"no local mongod\" }; docker --version 2>&1; docker ps 2>&1 | Select-Object -First 3)",
+      "PowerShell(bun run *)",
+      "PowerShell(try { $seed = Invoke-RestMethod -Uri \"http://localhost:3100/api/seed\" -Method POST -TimeoutSec 30; Write-Output \"SEED: $\\($seed | ConvertTo-Json -Compress\\)\" } catch { Write-Output \"SEED ERR: $\\($_.Exception.Message\\)\" })",
+      "Bash(grep -iA8 \"seed error\\\\|MongooseError\\\\|MongoServer\\\\|error:\" server.log)",
+      "Bash(grep -iA6 \"error\" server.log)",
+      "PowerShell(Out-File *)",
+      "Bash(grep -iA4 \"change.password\\\\|Unauthorized\\\\|error\" server.log)",
+      "Bash(curl.exe -s -i -c cookies.txt -X POST __TRACKED_VAR__/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin\"}' -o -)",
+      "Bash(docker compose *)",
+      "Read(//tmp/**)",
+      "Bash(cp \"C:/Users/Nanz/AppData/Local/Temp/claude/E--ITMS/5e22264b-8f35-4d2a-8715-04d95b9fa5c1/tasks/b6b4n52ys.output\" /tmp/dockerbuild.log)",
+      "Bash(break)",
+      "Bash(cp C:/Users/Nanz/AppData/Local/Temp/claude/E--ITMS/5e22264b-8f35-4d2a-8715-04d95b9fa5c1/tasks/bt9rzxstm.output /tmp/db2.log)",
+      "Bash(docker build *)",
+      "Bash(grep -iB2 -A20 \"Failed to collect\\\\|Error:\\\\|error occurred\\\\|cannot\\\\|Cannot\\\\|undefined\")",
+      "Bash(npm install *)",
+      "Bash(cp C:/Users/Nanz/AppData/Local/Temp/claude/E--ITMS/5e22264b-8f35-4d2a-8715-04d95b9fa5c1/tasks/b2hkmviji.output /tmp/db4.log)",
+      "Bash(cp C:/Users/Nanz/AppData/Local/Temp/claude/E--ITMS/5e22264b-8f35-4d2a-8715-04d95b9fa5c1/tasks/bz8ywqzcz.output /tmp/db5.log)",
+      "Bash(curl.exe -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/login)",
+      "Bash(docker rmi *)",
+      "PowerShell($p = Get-Process -Id 2600 -ErrorAction SilentlyContinue; if \\($p\\) { Write-Output \"PID 2600 = $\\($p.ProcessName\\)\" } else { Write-Output \"PID 2600 not found\" })"
+    ]
+  }
+}

@@ -1,0 +1,3 @@
+﻿displayName,username,email,employeeId,password,role,userTypes,jobTitle,department,mobile,status
+Jane Doe,jdoe,jane@example.com,EMP-100,Welcome123,User,Requester|Technician,IT Support,IT,+62123456789,Active
+Sam Requester,sam.req,sam.req@example.com,EMP-101,Welcome123,User,Requester,Staff,HR,,Active

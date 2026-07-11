@@ -1,0 +1,1237 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  /*
+   * System chrome colors (with blue hex fallbacks so default never goes blank).
+   * Runtime --sys-* on :root / data-system-color override these.
+   */
+  --color-blue-50: var(--sys-50, #eff6ff);
+  --color-blue-100: var(--sys-100, #dbeafe);
+  --color-blue-200: var(--sys-200, #bfdbfe);
+  --color-blue-300: var(--sys-300, #93c5fd);
+  --color-blue-400: var(--sys-400, #60a5fa);
+  --color-blue-500: var(--sys-500, #3b82f6);
+  --color-blue-600: var(--sys-600, #2563eb);
+  --color-blue-700: var(--sys-700, #1d4ed8);
+  --color-blue-800: var(--sys-800, #1e40af);
+  --color-blue-900: var(--sys-900, #1e3a8a);
+  --color-blue-950: var(--sys-950, #172554);
+}
+
+/* =========================================================
+   SYSTEM COLOR PALETTES
+   soft 50/100 = hover/chips | mid 600 = solid buttons | hard 700 = primary
+   Always set concrete hex on :root first (never circular vars).
+   ========================================================= */
+
+/* Default = Blue (works before JS sets data-system-color) */
+:root {
+  --sys-50: #eff6ff;
+  --sys-100: #dbeafe;
+  --sys-200: #bfdbfe;
+  --sys-300: #93c5fd;
+  --sys-400: #60a5fa;
+  --sys-500: #3b82f6;
+  --sys-600: #2563eb;
+  --sys-700: #1d4ed8;
+  --sys-800: #1e40af;
+  --sys-900: #1e3a8a;
+  --sys-950: #172554;
+  --sys-soft-dark: #1e3a5f;
+}
+
+html[data-system-color="blue"] {
+  --sys-50: #eff6ff;
+  --sys-100: #dbeafe;
+  --sys-200: #bfdbfe;
+  --sys-300: #93c5fd;
+  --sys-400: #60a5fa;
+  --sys-500: #3b82f6;
+  --sys-600: #2563eb;
+  --sys-700: #1d4ed8;
+  --sys-800: #1e40af;
+  --sys-900: #1e3a8a;
+  --sys-950: #172554;
+  --sys-soft-dark: #1e3a5f;
+}
+
+html[data-system-color="purple"] {
+  --sys-50: #faf5ff;
+  --sys-100: #f3e8ff;
+  --sys-200: #e9d5ff;
+  --sys-300: #d8b4fe;
+  --sys-400: #c084fc;
+  --sys-500: #a855f7;
+  --sys-600: #9333ea;
+  --sys-700: #7e22ce;
+  --sys-800: #6b21a8;
+  --sys-900: #581c87;
+  --sys-950: #3b0764;
+  --sys-soft-dark: #3b1f5e;
+}
+
+html[data-system-color="green"] {
+  --sys-50: #f0fdf4;
+  --sys-100: #dcfce7;
+  --sys-200: #bbf7d0;
+  --sys-300: #86efac;
+  --sys-400: #4ade80;
+  --sys-500: #22c55e;
+  --sys-600: #16a34a;
+  --sys-700: #15803d;
+  --sys-800: #166534;
+  --sys-900: #14532d;
+  --sys-950: #052e16;
+  --sys-soft-dark: #14532d;
+}
+
+html[data-system-color="cyan"] {
+  --sys-50: #ecfeff;
+  --sys-100: #cffafe;
+  --sys-200: #a5f3fc;
+  --sys-300: #67e8f9;
+  --sys-400: #22d3ee;
+  --sys-500: #06b6d4;
+  --sys-600: #0891b2;
+  --sys-700: #0e7490;
+  --sys-800: #155e75;
+  --sys-900: #164e63;
+  --sys-950: #083344;
+  --sys-soft-dark: #164e63;
+}
+
+/* ========== LIGHT MODE ========== */
+:root {
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: var(--sys-700, #1d4ed8);
+  --primary-foreground: #ffffff;
+  --secondary: #e2e8f0;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #334155;
+  --accent: var(--sys-100, #dbeafe);
+  --accent-foreground: #0f172a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  /* Soft borders — barely visible (navbar/sections) */
+  --border: #f1f5f9;
+  /* Form field outline — stronger, mixes with system color at runtime via .form-control-chrome */
+  --input: color-mix(in srgb, var(--sys-600, #2563eb) 35%, #94a3b8 65%);
+  --ring: var(--sys-600, #2563eb);
+  --sidebar: #f8fafc;
+  --sidebar-foreground: #0f172a;
+  --sidebar-accent: var(--sys-100, #dbeafe);
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: transparent;
+}
+
+/* ========== DARK MODE ========== */
+.dark {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --card: #1e293b;
+  --card-foreground: #f8fafc;
+  --popover: #1e293b;
+  --popover-foreground: #f8fafc;
+  --primary: var(--sys-500, #3b82f6);
+  --primary-foreground: #ffffff;
+  --secondary: #334155;
+  --secondary-foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #cbd5e1;
+  --accent: var(--sys-soft-dark, #1e3a5f);
+  --accent-foreground: #f8fafc;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  /* Soft borders in dark mode too */
+  --border: #1e293b;
+  --input: color-mix(in srgb, var(--sys-400, #60a5fa) 45%, #64748b 55%);
+  --ring: var(--sys-500, #3b82f6);
+  --sidebar: #1e293b;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-accent: #334155;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: transparent;
+}
+
+* {
+  border-color: var(--border);
+}
+
+/* Kill layout chrome dividers (header ↔ main, sidebar edge) */
+header,
+.sticky.top-0,
+aside,
+[data-app-sidebar],
+.nav-shell-bottom {
+  border-color: transparent !important;
+  border-bottom-width: 0 !important;
+  border-top-width: 0 !important;
+  box-shadow: none !important;
+}
+
+html {
+  /* Prevent accidental horizontal page scroll on phones */
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  overflow-x: hidden;
+  max-width: 100vw;
+  /* iOS notch / home indicator */
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Mobile shell helpers (layout only — no feature logic) */
+.mobile-drawer-open {
+  overflow: hidden !important;
+  touch-action: none;
+}
+
+.safe-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* Tables / wide content: allow horizontal scroll inside main, not whole page */
+.main-scroll-x {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.main-scroll-x .overflow-x-auto,
+.main-scroll-x table {
+  max-width: 100%;
+}
+
+/* =========================================================
+   CARET / CURSOR — static UI must NOT show a text caret
+   (prevents caret-browsing & editor style leaks on empty states)
+   ========================================================= */
+html,
+body {
+  caret-color: transparent;
+}
+
+/* Only real editable surfaces get a text caret + I-beam */
+input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="range"]):not([type="color"]),
+textarea,
+[contenteditable="true"],
+.ProseMirror[contenteditable="true"],
+.rich-text-editor.ProseMirror {
+  caret-color: auto;
+  cursor: text;
+}
+
+/* Static chrome defaults */
+button,
+a,
+label,
+select,
+summary,
+[role="button"],
+[role="tab"],
+[role="menuitem"] {
+  cursor: pointer;
+  caret-color: transparent;
+}
+
+/* =========================================================
+   FORM CONTROLS — bold outline + system-color (accent) shadow
+   Used by Input, Select, Textarea, search bars, rich editor
+   ========================================================= */
+:root {
+  --form-border: color-mix(in srgb, var(--sys-600, #2563eb) 42%, #64748b 58%);
+  --form-border-hover: var(--sys-500, #3b82f6);
+  --form-border-focus: var(--sys-600, #2563eb);
+  --form-shadow: 0 1px 3px color-mix(in srgb, var(--sys-600, #2563eb) 22%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--sys-400, #60a5fa) 28%, transparent);
+  --form-shadow-hover: 0 2px 6px color-mix(in srgb, var(--sys-600, #2563eb) 28%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--sys-500, #3b82f6) 40%, transparent);
+  --form-shadow-focus: 0 0 0 3px color-mix(in srgb, var(--sys-500, #3b82f6) 32%, transparent),
+    0 2px 8px color-mix(in srgb, var(--sys-600, #2563eb) 24%, transparent);
+}
+
+.dark {
+  --form-border: color-mix(in srgb, var(--sys-400, #60a5fa) 55%, #94a3b8 45%);
+  --form-border-hover: var(--sys-400, #60a5fa);
+  --form-border-focus: var(--sys-400, #60a5fa);
+  --form-shadow: 0 1px 3px color-mix(in srgb, var(--sys-500, #3b82f6) 35%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--sys-400, #60a5fa) 35%, transparent);
+  --form-shadow-hover: 0 2px 6px color-mix(in srgb, var(--sys-500, #3b82f6) 40%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--sys-400, #60a5fa) 45%, transparent);
+  --form-shadow-focus: 0 0 0 3px color-mix(in srgb, var(--sys-500, #3b82f6) 40%, transparent),
+    0 2px 8px color-mix(in srgb, var(--sys-400, #60a5fa) 30%, transparent);
+}
+
+.form-control-chrome {
+  border-width: 1.5px !important;
+  border-style: solid !important;
+  border-color: var(--form-border) !important;
+  box-shadow: var(--form-shadow) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.form-control-chrome:hover:not(:disabled):not([data-disabled]):not([aria-disabled="true"]) {
+  border-color: var(--form-border-hover) !important;
+  box-shadow: var(--form-shadow-hover) !important;
+}
+
+.form-control-chrome:focus,
+.form-control-chrome:focus-visible,
+.form-control-chrome:focus-within {
+  border-color: var(--form-border-focus) !important;
+  box-shadow: var(--form-shadow-focus) !important;
+  outline: none !important;
+}
+
+.form-control-chrome:disabled,
+.form-control-chrome[data-disabled],
+.form-control-chrome[aria-disabled="true"] {
+  box-shadow: none !important;
+  border-color: color-mix(in srgb, var(--form-border) 50%, transparent) !important;
+  opacity: 0.75;
+}
+
+/* =========================================================
+   LIGHT MODE text = dark | DARK MODE text = light
+   Scoped properly — no cross-contamination
+   ========================================================= */
+
+/* ---- LIGHT: default content text dark ---- */
+html:not(.dark) body {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+html:not(.dark) main {
+  color: #0f172a;
+}
+
+html:not(.dark) h1,
+html:not(.dark) h2,
+html:not(.dark) h3,
+html:not(.dark) h4,
+html:not(.dark) h5,
+html:not(.dark) h6 {
+  color: #0f172a;
+}
+
+html:not(.dark) label {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+html:not(.dark) th,
+html:not(.dark) td {
+  color: #0f172a;
+}
+
+html:not(.dark) p,
+html:not(.dark) span,
+html:not(.dark) li {
+  color: inherit;
+}
+
+/*
+ * Solid-color chips/avatars/icons: force light text+stroke.
+ * IMPORTANT: only match real utility `.text-white` — never `[class*="text-white"]`
+ * because that also matches `data-[state=active]:text-white` on idle tabs.
+ */
+html:not(.dark) .text-white,
+html.dark .text-white {
+  color: #ffffff !important;
+}
+html:not(.dark) svg.text-white,
+html.dark svg.text-white,
+html:not(.dark) .text-white svg,
+html.dark .text-white svg,
+html:not(.dark) .bg-blue-600 svg,
+html:not(.dark) .bg-purple-600 svg,
+html:not(.dark) .bg-orange-500 svg,
+html:not(.dark) .bg-green-600 svg,
+html:not(.dark) .bg-red-600 svg,
+html:not(.dark) .bg-amber-500 svg,
+html:not(.dark) .bg-slate-500 svg,
+html:not(.dark) .bg-slate-600 svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Soft secondary text still readable (dark gray, not washed) */
+html:not(.dark) .text-muted-foreground {
+  color: #334155 !important;
+}
+
+html:not(.dark) input,
+html:not(.dark) textarea {
+  color: #0f172a !important;
+  background-color: #ffffff;
+}
+
+html:not(.dark) input::placeholder,
+html:not(.dark) textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
+html:not(.dark) input:disabled,
+html:not(.dark) textarea:disabled {
+  color: #1e293b !important;
+  background-color: #e2e8f0 !important;
+  opacity: 1 !important;
+}
+
+/* Light mode icons: solid dark (unless colored utility or on solid button) */
+html:not(.dark) svg {
+  opacity: 1 !important;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.25;
+}
+html:not(.dark) :where(button, a, span, div, label, p, header, aside, nav, main) > svg,
+html:not(.dark) :where(button, a, span, div) svg:not([class*="text-"]) {
+  color: #0f172a !important;
+  stroke: #0f172a !important;
+}
+
+/* ---- DARK: default content text light ---- */
+html.dark body {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+html.dark main {
+  color: #f8fafc;
+}
+
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6 {
+  color: #f8fafc;
+}
+
+html.dark label {
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+html.dark th,
+html.dark td {
+  color: #f8fafc;
+}
+
+html.dark .text-muted-foreground {
+  color: #cbd5e1 !important;
+}
+
+html.dark input,
+html.dark textarea {
+  color: #f8fafc !important;
+  background-color: #1e293b;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+html.dark input:disabled,
+html.dark textarea:disabled {
+  color: #e2e8f0 !important;
+  background-color: #334155 !important;
+  opacity: 1 !important;
+}
+
+/* Dark mode icons: solid light (unless colored utility or on solid button) */
+html.dark svg {
+  opacity: 1 !important;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.25;
+}
+html.dark :where(button, a, span, div, label, p, header, aside, nav, main) > svg,
+html.dark :where(button, a, span, div) svg:not([class*="text-"]) {
+  color: #f8fafc !important;
+  stroke: #f8fafc !important;
+}
+
+/* ---- White text/icons ONLY on solid primary/danger surfaces (both modes) ----
+   Do NOT use bare `button[data-state="active"]` — that bleeds onto tabs before
+   their own blue background applies and can flash/hide text. */
+.bg-blue-600,
+.bg-blue-700,
+.bg-red-600,
+.bg-destructive,
+.bg-primary,
+.nav-item-active {
+  color: #ffffff !important;
+}
+
+.bg-blue-600 svg,
+.bg-blue-700 svg,
+.bg-red-600 svg,
+.bg-destructive svg,
+.bg-primary svg,
+.nav-item-active svg,
+.bg-blue-600 * svg,
+.bg-blue-700 * svg,
+.nav-item-active * svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Children of solid blue/red surfaces (text) */
+.bg-blue-600 > *:not(svg),
+.bg-blue-700 > *:not(svg),
+.bg-red-600 > *:not(svg),
+.nav-item-active > *:not(svg) {
+  color: #ffffff !important;
+}
+
+/* Semantic colored icons — allow green/yellow/red/etc utilities to win */
+html:not(.dark) svg[class*="text-green"],
+html:not(.dark) svg.text-green-600,
+html:not(.dark) svg.text-green-500,
+html:not(.dark) .text-green-600,
+html:not(.dark) .text-green-500 {
+  color: #16a34a !important;
+  stroke: #16a34a !important;
+}
+html:not(.dark) svg[class*="text-yellow"],
+html:not(.dark) .text-yellow-600,
+html:not(.dark) .text-yellow-500 {
+  color: #ca8a04 !important;
+  stroke: #ca8a04 !important;
+}
+html:not(.dark) svg[class*="text-red"],
+html:not(.dark) .text-red-600,
+html:not(.dark) .text-red-500 {
+  color: #dc2626 !important;
+  stroke: #dc2626 !important;
+}
+html:not(.dark) svg[class*="text-orange"],
+html:not(.dark) .text-orange-700 {
+  color: #c2410c !important;
+  stroke: #c2410c !important;
+}
+html:not(.dark) svg[class*="text-blue"],
+html:not(.dark) .text-blue-700,
+html:not(.dark) .text-blue-600 {
+  color: var(--sys-700) !important;
+  stroke: var(--sys-700) !important;
+}
+html:not(.dark) svg[class*="text-purple"],
+html:not(.dark) .text-purple-700 {
+  color: #7e22ce !important;
+  stroke: #7e22ce !important;
+}
+html:not(.dark) svg[class*="text-indigo"],
+html:not(.dark) .text-indigo-700 {
+  color: #4338ca !important;
+  stroke: #4338ca !important;
+}
+
+html.dark svg[class*="text-green"],
+html.dark .text-green-400,
+html.dark .text-green-300 {
+  color: #4ade80 !important;
+  stroke: #4ade80 !important;
+}
+html.dark svg[class*="text-yellow"],
+html.dark .text-yellow-400 {
+  color: #facc15 !important;
+  stroke: #facc15 !important;
+}
+html.dark svg[class*="text-red"],
+html.dark .text-red-400 {
+  color: #f87171 !important;
+  stroke: #f87171 !important;
+}
+html.dark svg[class*="text-orange"],
+html.dark .text-orange-300 {
+  color: #fdba74 !important;
+  stroke: #fdba74 !important;
+}
+html.dark svg[class*="text-blue"],
+html.dark .text-blue-300,
+html.dark .text-blue-400 {
+  color: var(--sys-300) !important;
+  stroke: var(--sys-300) !important;
+}
+html.dark svg[class*="text-purple"],
+html.dark .text-purple-300 {
+  color: #d8b4fe !important;
+  stroke: #d8b4fe !important;
+}
+html.dark svg[class*="text-indigo"],
+html.dark .text-indigo-300 {
+  color: #a5b4fc !important;
+  stroke: #a5b4fc !important;
+}
+
+/* Icon tiles — blue on light chip (light mode) / brighter on dark */
+.icon-tile {
+  background-color: var(--sys-100);
+  color: var(--sys-700);
+}
+.icon-tile svg {
+  color: var(--sys-700) !important;
+  stroke: var(--sys-700) !important;
+}
+
+html.dark .icon-tile {
+  background-color: var(--sys-soft-dark);
+  color: var(--sys-300);
+}
+html.dark .icon-tile svg {
+  color: var(--sys-300) !important;
+  stroke: var(--sys-300) !important;
+}
+
+/* Dashboard stat cards — solid colored tile + white icon (both modes)
+   Specificity must beat: html:not(.dark) a svg:not([class*="text-"]) */
+.stat-icon-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff !important;
+}
+html:not(.dark) .stat-icon-tile,
+html.dark .stat-icon-tile,
+html:not(.dark) a .stat-icon-tile,
+html.dark a .stat-icon-tile {
+  color: #ffffff !important;
+}
+html:not(.dark) .stat-icon-tile svg,
+html.dark .stat-icon-tile svg,
+html:not(.dark) a .stat-icon-tile svg,
+html.dark a .stat-icon-tile svg,
+html:not(.dark) .stat-icon-tile > svg,
+html.dark .stat-icon-tile > svg,
+html:not(.dark) a div.stat-icon-tile svg,
+html.dark a div.stat-icon-tile svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: none !important;
+}
+.stat-icon-blue {
+  background-color: var(--sys-600) !important;
+}
+.stat-icon-indigo {
+  background-color: #4f46e5 !important;
+}
+.stat-icon-green {
+  background-color: #16a34a !important;
+}
+.stat-icon-orange {
+  background-color: #ea580c !important;
+}
+.stat-icon-purple {
+  background-color: #9333ea !important;
+}
+/* Dark mode: slightly brighter solids for contrast on dark cards */
+html.dark .stat-icon-blue {
+  background-color: var(--sys-500) !important;
+}
+html.dark .stat-icon-indigo {
+  background-color: #6366f1 !important;
+}
+html.dark .stat-icon-green {
+  background-color: #22c55e !important;
+}
+html.dark .stat-icon-orange {
+  background-color: #f97316 !important;
+}
+html.dark .stat-icon-purple {
+  background-color: #a855f7 !important;
+}
+
+/*
+ * Delete / destructive hover — ancient red in EVERY system color
+ * (not remapped by blue→purple/green/cyan tokens)
+ */
+.menu-item-delete {
+  color: #9b1c1c !important;
+}
+.menu-item-delete svg,
+.menu-item-delete .menu-item-delete-icon {
+  color: #9b1c1c !important;
+  stroke: #9b1c1c !important;
+}
+.menu-item-delete:hover,
+.menu-item-delete:focus,
+.menu-item-delete[data-highlighted],
+html:not(.dark) [role="menuitem"].menu-item-delete:hover,
+html:not(.dark) [role="menuitem"].menu-item-delete:focus,
+html:not(.dark) [role="menuitem"].menu-item-delete[data-highlighted],
+html.dark [role="menuitem"].menu-item-delete:hover,
+html.dark [role="menuitem"].menu-item-delete:focus,
+html.dark [role="menuitem"].menu-item-delete[data-highlighted] {
+  background-color: #7f1d1d !important; /* ancient deep red */
+  color: #ffffff !important;
+}
+.menu-item-delete:hover svg,
+.menu-item-delete:focus svg,
+.menu-item-delete[data-highlighted] svg,
+html:not(.dark) [role="menuitem"].menu-item-delete:hover svg,
+html:not(.dark) [role="menuitem"].menu-item-delete:focus svg,
+html:not(.dark) [role="menuitem"].menu-item-delete[data-highlighted] svg,
+html.dark [role="menuitem"].menu-item-delete:hover svg,
+html.dark [role="menuitem"].menu-item-delete:focus svg,
+html.dark [role="menuitem"].menu-item-delete[data-highlighted] svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Soft hovers = theme --accent (same as Tailwind hover:bg-accent) */
+html:not(.dark) button.pref-nav-option:not(.pref-nav-option-active):hover {
+  background-color: var(--accent) !important;
+  border-color: var(--sys-200, #bfdbfe) !important;
+  color: #0f172a !important;
+}
+html:not(.dark) button.pref-nav-option:not(.pref-nav-option-active):hover svg {
+  color: #0f172a !important;
+  stroke: #0f172a !important;
+}
+html:not(.dark) button.pref-nav-option:not(.pref-nav-option-active):hover .text-muted-foreground,
+html:not(.dark) button.pref-nav-option:not(.pref-nav-option-active):hover p {
+  color: #475569 !important;
+}
+html.dark button.pref-nav-option:not(.pref-nav-option-active):hover {
+  background-color: var(--accent) !important;
+  border-color: var(--sys-500, #3b82f6) !important;
+  color: #f8fafc !important;
+}
+html.dark button.pref-nav-option:not(.pref-nav-option-active):hover svg {
+  color: var(--sys-300, #93c5fd) !important;
+  stroke: var(--sys-300, #93c5fd) !important;
+}
+
+/* Topbar soft hover = --accent */
+html:not(.dark) header button:hover,
+html:not(.dark) header a[href="/notifications"]:hover,
+html:not(.dark) header a[href="/preferences"]:hover {
+  background-color: var(--accent) !important;
+  border-color: transparent !important;
+  color: #0f172a !important;
+}
+html:not(.dark) header button:hover svg,
+html:not(.dark) header a[href="/notifications"]:hover svg,
+html:not(.dark) header a[href="/preferences"]:hover svg {
+  color: #0f172a !important;
+  stroke: #0f172a !important;
+}
+html:not(.dark) header button:hover .bg-blue-600,
+html:not(.dark) header button:hover .text-white {
+  color: #ffffff !important;
+}
+
+html.dark header button:hover,
+html.dark header a[href="/notifications"]:hover,
+html.dark header a[href="/preferences"]:hover {
+  background-color: var(--accent) !important;
+  border-color: transparent !important;
+  color: var(--sys-300, #93c5fd) !important;
+}
+html.dark header button:hover svg,
+html.dark header a[href="/notifications"]:hover svg,
+html.dark header a[href="/preferences"]:hover svg {
+  color: var(--sys-300, #93c5fd) !important;
+  stroke: var(--sys-300, #93c5fd) !important;
+}
+html.dark header button:hover .bg-blue-600,
+html.dark header button:hover .text-white {
+  color: #ffffff !important;
+}
+
+/* Dropdown menuitem soft hover = --accent */
+html:not(.dark) [role="menuitem"]:hover,
+html:not(.dark) [role="menuitem"]:focus,
+html:not(.dark) [role="menuitem"][data-highlighted] {
+  background-color: var(--accent) !important;
+}
+html:not(.dark) [role="menuitem"]:not(.text-red-600):hover,
+html:not(.dark) [role="menuitem"]:not(.text-red-600):focus,
+html:not(.dark) [role="menuitem"]:not(.text-red-600)[data-highlighted] {
+  color: #0f172a !important;
+}
+html:not(.dark) [role="menuitem"].text-red-600:hover,
+html:not(.dark) [role="menuitem"].text-red-600:focus,
+html:not(.dark) [role="menuitem"].text-red-600[data-highlighted] {
+  color: #ffffff !important;
+  background-color: #7f1d1d !important; /* ancient red */
+}
+html:not(.dark) [role="menuitem"]:hover svg,
+html:not(.dark) [role="menuitem"]:focus svg,
+html:not(.dark) [role="menuitem"][data-highlighted] svg {
+  color: currentColor !important;
+  stroke: currentColor !important;
+}
+
+html.dark [role="menuitem"]:hover,
+html.dark [role="menuitem"]:focus,
+html.dark [role="menuitem"][data-highlighted] {
+  background-color: var(--accent) !important;
+}
+html.dark [role="menuitem"]:not(.text-red-400):hover,
+html.dark [role="menuitem"]:not(.text-red-400):focus,
+html.dark [role="menuitem"]:not(.text-red-400)[data-highlighted] {
+  color: var(--sys-300, #93c5fd) !important;
+}
+html.dark [role="menuitem"].text-red-400:hover,
+html.dark [role="menuitem"].text-red-400:focus,
+html.dark [role="menuitem"].text-red-400[data-highlighted] {
+  color: #ffffff !important;
+  background-color: #7f1d1d !important; /* ancient red */
+}
+
+/* Smooth page content enter (no full-shell remount blink) */
+.page-enter {
+  animation: page-enter-fade 0.18s ease-out both;
+}
+
+@keyframes page-enter-fade {
+  from {
+    opacity: 0.55;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
+}
+
+/* Nav items */
+.nav-item {
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+html:not(.dark) .nav-item:not(.nav-item-active):not(.nav-item-sidebar-active) {
+  color: #0f172a;
+}
+html:not(.dark) .nav-item:not(.nav-item-active):not(.nav-item-sidebar-active) svg {
+  color: #0f172a !important;
+  stroke: #0f172a !important;
+}
+html:not(.dark) .nav-item:hover:not(.nav-item-active):not(.nav-item-sidebar-active) {
+  background-color: var(--accent);
+  color: var(--sys-700, #1d4ed8);
+}
+html:not(.dark) .nav-item:hover:not(.nav-item-active):not(.nav-item-sidebar-active) svg {
+  color: var(--sys-700, #1d4ed8) !important;
+  stroke: var(--sys-700, #1d4ed8) !important;
+}
+
+html.dark .nav-item:not(.nav-item-active):not(.nav-item-sidebar-active) {
+  color: #f8fafc;
+}
+html.dark .nav-item:not(.nav-item-active):not(.nav-item-sidebar-active) svg {
+  color: #f8fafc !important;
+  stroke: #f8fafc !important;
+}
+html.dark .nav-item:hover:not(.nav-item-active):not(.nav-item-sidebar-active) {
+  background-color: var(--accent);
+  color: var(--sys-300, #93c5fd);
+}
+html.dark .nav-item:hover:not(.nav-item-active):not(.nav-item-sidebar-active) svg {
+  color: var(--sys-300, #93c5fd) !important;
+  stroke: var(--sys-300, #93c5fd) !important;
+}
+
+/* Top / bottom horizontal nav — keep solid pill active */
+.nav-item-active:not(.nav-item-sidebar) {
+  background-color: var(--sys-600) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+.nav-item-active:not(.nav-item-sidebar) svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* =========================================================
+   SIDEBAR — animated underline (no solid fill)
+   ========================================================= */
+.nav-item-sidebar {
+  position: relative;
+  background-color: transparent !important;
+  overflow: visible;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+/* Soft hover wash (not a solid active block) */
+html:not(.dark) .nav-item-sidebar:hover:not(.nav-item-sidebar-active) {
+  background-color: color-mix(in srgb, var(--sys-500, #3b82f6) 8%, transparent) !important;
+  color: var(--sys-700, #1d4ed8) !important;
+}
+html.dark .nav-item-sidebar:hover:not(.nav-item-sidebar-active) {
+  background-color: color-mix(in srgb, var(--sys-400, #60a5fa) 12%, transparent) !important;
+  color: var(--sys-300, #93c5fd) !important;
+}
+
+/* Animated line under the item */
+.nav-item-sidebar::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.3rem;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--sys-500, #3b82f6) 20%,
+    var(--sys-400, #60a5fa) 50%,
+    var(--sys-500, #3b82f6) 80%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  transform: scaleX(0);
+  transform-origin: center;
+  opacity: 0;
+  transition:
+    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
+  pointer-events: none;
+}
+
+html:not(.dark) .nav-item-sidebar:hover::after {
+  transform: scaleX(0.55);
+  opacity: 0.55;
+}
+
+html.dark .nav-item-sidebar:hover::after {
+  transform: scaleX(0.55);
+  opacity: 0.65;
+}
+
+/* Active: full underline + subtle shimmer */
+.nav-item-sidebar.nav-item-sidebar-active {
+  background-color: transparent !important;
+  font-weight: 700;
+  color: var(--sys-600, #2563eb) !important;
+}
+html.dark .nav-item-sidebar.nav-item-sidebar-active {
+  color: var(--sys-300, #93c5fd) !important;
+}
+
+.nav-item-sidebar.nav-item-sidebar-active svg {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+.nav-item-sidebar.nav-item-sidebar-active > *:not(svg) {
+  color: inherit !important;
+}
+
+.nav-item-sidebar.nav-item-sidebar-active::after {
+  transform: scaleX(1);
+  opacity: 1;
+  animation: nav-underline-shimmer 2.4s ease-in-out infinite;
+}
+
+/* Collapsed sidebar: shorter line under icon */
+.nav-item-sidebar.justify-center::after {
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 0.25rem;
+}
+
+@keyframes nav-underline-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  50% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: 100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-item-sidebar.nav-item-sidebar-active::after {
+    animation: none;
+  }
+  .nav-item-sidebar::after {
+    transition: none;
+  }
+}
+
+.nav-card-group:hover {
+  border-color: transparent;
+}
+html:not(.dark) .nav-card-group:hover {
+  background-color: var(--accent);
+}
+html.dark .nav-card-group:hover {
+  background-color: var(--accent);
+}
+
+/* Soften card/section outlines globally (navbar-adjacent surfaces) */
+.rounded-lg.border,
+.rounded-xl.border,
+.rounded-md.border {
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+/* =========================================================
+   Tabs (Hardware / Software / Consumable, etc.)
+   Own classes so Tailwind utilities cannot wash out labels.
+   ========================================================= */
+.ui-tabs-list {
+  display: inline-flex;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border-radius: 0.5rem;
+  padding: 0.25rem;
+  border: 1px solid #94a3b8;
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+html.dark .ui-tabs-list {
+  border-color: #475569;
+  background-color: #1e293b;
+  color: #f8fafc;
+}
+
+.ui-tabs-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  border-radius: 0.375rem;
+  border: none;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  background-color: transparent;
+  opacity: 1 !important;
+}
+
+/* Light mode: idle = dark text on gray track (always readable) */
+html:not(.dark) .ui-tabs-trigger,
+html:not(.dark) button.ui-tabs-trigger,
+html:not(.dark) button[role="tab"].ui-tabs-trigger,
+html:not(.dark) button[role="tab"] {
+  color: #0f172a !important;
+  background-color: transparent;
+  font-weight: 700;
+}
+
+html:not(.dark) .ui-tabs-trigger:hover:not([data-state="active"]),
+html:not(.dark) button[role="tab"]:hover:not([data-state="active"]) {
+  background-color: var(--sys-200) !important;
+  color: var(--sys-900) !important;
+}
+
+html:not(.dark) .ui-tabs-trigger[data-state="active"],
+html:not(.dark) button.ui-tabs-trigger[data-state="active"],
+html:not(.dark) button[role="tab"][data-state="active"] {
+  background-color: var(--sys-600) !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+}
+
+/* Dark mode */
+html.dark .ui-tabs-trigger,
+html.dark button.ui-tabs-trigger,
+html.dark button[role="tab"].ui-tabs-trigger,
+html.dark button[role="tab"] {
+  color: #f8fafc !important;
+  background-color: transparent;
+  font-weight: 700;
+}
+
+html.dark .ui-tabs-trigger:hover:not([data-state="active"]),
+html.dark button[role="tab"]:hover:not([data-state="active"]) {
+  background-color: var(--sys-soft-dark) !important;
+  color: var(--sys-300) !important;
+}
+
+html.dark .ui-tabs-trigger[data-state="active"],
+html.dark button.ui-tabs-trigger[data-state="active"],
+html.dark button[role="tab"][data-state="active"] {
+  background-color: var(--sys-600) !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.ui-tabs-trigger:focus-visible {
+  outline: 2px solid var(--sys-500);
+  outline-offset: 2px;
+}
+
+.ui-tabs-trigger:disabled {
+  pointer-events: none;
+  opacity: 0.5 !important;
+}
+
+/* Scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #64748b;
+  border-radius: 3px;
+}
+
+/* =========================================================
+   TipTap / ProseMirror — SCOPED (do not leak to page UI)
+   Host: .rte-host > .rich-text-editor.ProseMirror
+   ========================================================= */
+.rte-host .rich-text-editor.ProseMirror,
+.rte-host .ProseMirror.rich-text-editor {
+  min-height: var(--rte-min-h, 160px);
+  outline: none;
+  cursor: text;
+  caret-color: auto;
+}
+html:not(.dark) .rte-host .rich-text-editor.ProseMirror {
+  color: #0f172a;
+}
+html.dark .rte-host .rich-text-editor.ProseMirror {
+  color: #f8fafc;
+}
+
+/* Placeholder only inside our editor host (not global .ProseMirror) */
+.rte-host .ProseMirror p.is-editor-empty:first-child::before,
+.rte-host .rich-text-editor p.is-editor-empty:first-child::before {
+  color: #64748b;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Gap-cursor blink (ProseMirror injects this globally) — keep inside focused editor only */
+.ProseMirror-gapcursor {
+  display: none !important;
+}
+.ProseMirror-focused .ProseMirror-gapcursor {
+  display: block !important;
+}
+
+/* List / prose styles: only inside editor + read-only rich content viewer */
+.rte-host .rich-text-editor ul,
+.rich-text-content ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0.5rem 0;
+}
+.rte-host .rich-text-editor ol,
+.rich-text-content ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+  margin: 0.5rem 0;
+}
+.rte-host .rich-text-editor blockquote,
+.rich-text-content blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 0.75rem;
+  margin: 0.5rem 0;
+}
+.rte-host .rich-text-editor h2,
+.rich-text-content h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0.75rem 0 0.35rem;
+}
+.rte-host .rich-text-editor h3,
+.rich-text-content h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0.65rem 0 0.3rem;
+}
+.rte-host .rich-text-editor code,
+.rich-text-content code {
+  background: var(--muted);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.875em;
+}
+.rte-host .rich-text-editor a,
+.rich-text-content a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Read-only rich HTML must never become editable */
+.rich-text-content {
+  caret-color: transparent;
+  cursor: default;
+  user-select: text;
+}
+
+html:not(.dark) tr.cursor-pointer:hover {
+  background-color: var(--sys-50) !important;
+}
+html.dark tr.cursor-pointer:hover {
+  background-color: var(--sys-soft-dark) !important;
+}

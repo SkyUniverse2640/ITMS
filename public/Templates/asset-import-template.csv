@@ -1,0 +1,4 @@
+﻿name,assetType,assetCategory,assetTag,serialNumber,vendor,purchaseCost,purchaseDate,warrantyExpiredDate,currentState,assignedToEmail,assignedToEmployeeId,site,licenseKey,totalSeats,seatsUsed,stockQuantity,reorderThreshold,unit,comment
+Dell Latitude 5540,Laptop,Hardware,AST-LT001,SN123456,Dell,15000000,2024-01-15,2027-01-15,In Use,jane@example.com,,Headquarters,,,,,,,Primary work laptop
+Microsoft Office 365,Productivity Suite,Software,AST-SW001,,Microsoft,5000000,2024-02-01,,In Use,,,Headquarters,XXXXX-XXXXX-XXXXX,50,12,,,,Enterprise license pool
+HP Toner 26A,Toner,Consumable,AST-CN001,,HP,800000,2024-03-01,,In Warehouse,,,Headquarters,,,,25,5,pcs,Warehouse stock

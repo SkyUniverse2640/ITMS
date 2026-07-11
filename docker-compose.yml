@@ -1,0 +1,60 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nexusdesk-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/nexusdesk
+      - JWT_SECRET=${JWT_SECRET:-nexusdesk-secret-change-in-production}
+      - NODE_ENV=production
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - nexusdesk
+
+  mongo:
+    image: mongo:7
+    container_name: nexusdesk-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - nexusdesk
+
+  mongo-backup:
+    image: mongo:7
+    container_name: nexusdesk-backup
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - ./backups:/backups
+    networks:
+      - nexusdesk
+    entrypoint: |
+      bash -c 'while true; do
+        sleep 86400;
+        mongodump --host mongo --db nexusdesk --archive=/backups/nexusdesk-$$(date +%Y%m%d).gz --gzip;
+        find /backups -name "*.gz" -mtime +7 -delete;
+      done'
+
+volumes:
+  mongo-data:
+
+networks:
+  nexusdesk:
+    driver: bridge
