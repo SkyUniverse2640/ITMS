@@ -11,8 +11,10 @@ import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
 import { generateTicketNumberForType } from "@/lib/ticket-number";
 import { notifyUser, notifyUsers } from "@/lib/notify";
-import { computeSlaDueAt } from "@/lib/sla";
+import { computeSlaDueDates, computeSlaFlags, derivePriorityFromMatrix } from "@/lib/sla";
 import { Settings } from "@/lib/models/Settings";
+import { escapeRegex } from "@/lib/utils";
+import { sanitizeRichText } from "@/lib/sanitize-html";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -59,11 +61,12 @@ export async function GET(req: NextRequest) {
   }
 
   if (search) {
+    const escaped = escapeRegex(search);
     const searchClause = {
       $or: [
-        { ticketNumber: { $regex: search, $options: "i" } },
-        { subject: { $regex: search, $options: "i" } },
-        { requesterName: { $regex: search, $options: "i" } },
+        { ticketNumber: { $regex: escaped, $options: "i" } },
+        { subject: { $regex: escaped, $options: "i" } },
+        { requesterName: { $regex: escaped, $options: "i" } },
       ],
     };
     if (filter.$or) {
@@ -88,6 +91,41 @@ export async function GET(req: NextRequest) {
       .lean(),
     Ticket.countDocuments(filter),
   ]);
+
+  // SLA is derived, not a stored fact: re-evaluate OK/Breach on read so open
+  // tickets reflect the current clock. Persist only when a flag actually flips
+  // (keeps the stored value truthful for reports without a write per read).
+  const now = new Date();
+  const flips: { id: string; slaBreached: boolean; slaRespondBreached: boolean }[] = [];
+  for (const raw of tickets) {
+    const t = raw as unknown as Record<string, unknown>;
+    const flags = computeSlaFlags({
+      slaRespondDueAt: t.slaRespondDueAt as Date | undefined,
+      slaDueAt: t.slaDueAt as Date | undefined,
+      slaRespondedAt: t.slaRespondedAt as Date | undefined,
+      resolvedAt: t.resolvedAt as Date | undefined,
+      closedAt: t.closedAt as Date | undefined,
+      now,
+    });
+    if (
+      flags.slaBreached !== Boolean(t.slaBreached) ||
+      flags.slaRespondBreached !== Boolean(t.slaRespondBreached)
+    ) {
+      flips.push({ id: String(t._id), ...flags });
+    }
+    t.slaBreached = flags.slaBreached;
+    t.slaRespondBreached = flags.slaRespondBreached;
+  }
+  if (flips.length > 0) {
+    await Promise.all(
+      flips.map((f) =>
+        Ticket.updateOne(
+          { _id: f.id },
+          { $set: { slaBreached: f.slaBreached, slaRespondBreached: f.slaRespondBreached } }
+        )
+      )
+    );
+  }
 
   return NextResponse.json({
     success: true,
@@ -124,11 +162,14 @@ export async function POST(req: NextRequest) {
   const requestType =
     (typeof body.requestType === "string" && body.requestType.trim()) || "Incident";
 
-  const priority =
-    (typeof body.priority === "string" && body.priority.trim()) ||
-    (typeof body.urgency === "string" && body.urgency.trim()) ||
-    "Normal";
-  const slaDueAt = await computeSlaDueAt(priority);
+  const impact =
+    (typeof body.impact === "string" && body.impact.trim()) || "Normal";
+
+  const urgency =
+    (typeof body.urgency === "string" && body.urgency.trim()) || "Normal";
+
+  const priority = await derivePriorityFromMatrix(impact, urgency);
+  const { respondDueAt, resolveDueAt } = await computeSlaDueDates(priority);
 
   const approvalLabel =
     typeof body.approvalLabel === "string" && body.approvalLabel.trim()
@@ -145,8 +186,8 @@ export async function POST(req: NextRequest) {
   const createPayload: Record<string, unknown> = {
     requestType,
     status,
-    impact: typeof body.impact === "string" ? body.impact : "Normal",
-    urgency: (typeof body.urgency === "string" && body.urgency) || priority,
+    impact,
+    urgency: urgency,
     priority,
     department,
     group: department,
@@ -154,7 +195,7 @@ export async function POST(req: NextRequest) {
     subCategory: typeof body.subCategory === "string" ? body.subCategory : undefined,
     project: typeof body.project === "string" ? body.project : undefined,
     subject,
-    description: typeof body.description === "string" ? body.description : "",
+    description: typeof body.description === "string" ? sanitizeRichText(body.description) : "",
     requester: session._id,
     requesterName: session.displayName,
     requesterEmail: session.email,
@@ -162,7 +203,8 @@ export async function POST(req: NextRequest) {
     attachments: Array.isArray(body.attachments) ? body.attachments : [],
     approvalStatus: approverId ? "Pending" : undefined,
     approvalLabel,
-    slaDueAt: slaDueAt || undefined,
+    slaDueAt: resolveDueAt || undefined,
+    slaRespondDueAt: respondDueAt || undefined,
   };
   if (approverId) createPayload.approver = approverId;
   if (body.technician && mongoose.Types.ObjectId.isValid(String(body.technician))) {

@@ -46,6 +46,7 @@ import {
   parseSpreadsheetFile,
 } from "@/lib/parse-spreadsheet";
 import { downloadImportTemplate } from "@/lib/download-template";
+import { ImportOverlay } from "@/components/ui/import-overlay";
 import { DEFAULT_ICON, DEFAULT_LOGO } from "@/lib/public-assets";
 import { formatDateTime } from "@/lib/utils";
 
@@ -136,6 +137,8 @@ export default function OnboardingPage() {
   const [data, setData] = useState<OnboardingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [busyLabel, setBusyLabel] = useState<string>("Working…");
+  const [busyDetail, setBusyDetail] = useState<string>("");
   const [appNameDraft, setAppNameDraft] = useState("NexusDesk");
   const [uploading, setUploading] = useState<"logo" | "icon" | null>(null);
 
@@ -186,6 +189,8 @@ export default function OnboardingPage() {
   }
 
   async function generateDepartments() {
+    setBusyLabel("Generating departments…");
+    setBusyDetail("");
     setBusy(true);
     try {
       const res = await fetch("/api/onboarding/generate", {
@@ -207,6 +212,8 @@ export default function OnboardingPage() {
   }
 
   async function generateUsers() {
+    setBusyLabel("Generating users…");
+    setBusyDetail("");
     setBusy(true);
     try {
       const res = await fetch("/api/onboarding/generate", {
@@ -278,6 +285,8 @@ export default function OnboardingPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    setBusyLabel("Importing departments…");
+    setBusyDetail(file.name);
     setBusy(true);
     try {
       const rawRows = await parseSpreadsheetFile(file);
@@ -311,6 +320,8 @@ export default function OnboardingPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    setBusyLabel("Importing users…");
+    setBusyDetail(file.name);
     setBusy(true);
     try {
       const rawRows = await parseSpreadsheetFile(file);
@@ -362,6 +373,8 @@ export default function OnboardingPage() {
       });
       return;
     }
+    setBusyLabel("Saving app name…");
+    setBusyDetail("");
     setBusy(true);
     try {
       // Merge with current appearance so we don't wipe logo/icon
@@ -427,6 +440,8 @@ export default function OnboardingPage() {
   }
 
   async function finish(skipUsers = false) {
+    setBusyLabel("Finishing setup…");
+    setBusyDetail("");
     setBusy(true);
     try {
       const res = await fetch("/api/onboarding", {
@@ -472,6 +487,18 @@ export default function OnboardingPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      <ImportOverlay
+        open={busy || uploading !== null}
+        kind={uploading !== null ? "image" : "spreadsheet"}
+        label={
+          uploading === "logo"
+            ? "Uploading logo…"
+            : uploading === "icon"
+              ? "Uploading app icon…"
+              : busyLabel
+        }
+        detail={uploading !== null ? undefined : busyDetail || undefined}
+      />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">System Onboarding</h1>
         <p className="text-muted-foreground">

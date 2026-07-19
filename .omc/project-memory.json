@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1783750683461,
-  "projectRoot": "E:\\ITMS",
+  "lastScanned": 1784346214513,
+  "projectRoot": "E:\\ITMS\\ITMS",
   "techStack": {
     "languages": [
       {
@@ -42,12 +42,12 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npm run build",
+    "buildCommand": "cd /e/ITMS/ITMS\nls src/app/\\(dashboard\\)/admin/sla-settings/ 2>/dev/null\necho \"--- git shows sla-settings modified, page.tsx exists. The .next validator error is stale. Re-running tsc excluding .next ---\"\nnpx tsc --noEmit 2>&1 | grep -v \"\\.next/types\" | head -40\necho \"=== exit: done ===\"",
     "testCommand": null,
     "lintCommand": "npm run lint",
     "devCommand": "npm run dev",
     "scripts": {
-      "dev": "next dev",
+      "dev": "next dev --webpack",
       "build": "next build",
       "start": "next start",
       "lint": "eslint"
@@ -67,22 +67,28 @@
       "scripts",
       "src"
     ],
-    "gitBranches": null
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
   },
   "customNotes": [],
   "directoryMap": {
-    "backups": {
-      "path": "backups",
+    "errorlog": {
+      "path": "errorlog",
       "purpose": null,
-      "fileCount": 0,
-      "lastAccessed": 1783750683424,
-      "keyFiles": []
+      "fileCount": 2,
+      "lastAccessed": 1784346214269,
+      "keyFiles": [
+        "datauser.csv",
+        "stuck.png"
+      ]
     },
     "public": {
       "path": "public",
       "purpose": "Public files",
       "fileCount": 2,
-      "lastAccessed": 1783750683425,
+      "lastAccessed": 1784346214269,
       "keyFiles": [
         "logo.avif",
         "title.png"
@@ -91,9 +97,10 @@
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
-      "fileCount": 3,
-      "lastAccessed": 1783750683435,
+      "fileCount": 4,
+      "lastAccessed": 1784346214282,
       "keyFiles": [
+        "drop-db.mjs",
         "migrate-category-groups.js",
         "patch-request-types.mjs",
         "write-templates.mjs"
@@ -103,7 +110,7 @@
       "path": "src",
       "purpose": "Source code",
       "fileCount": 1,
-      "lastAccessed": 1783750683436,
+      "lastAccessed": 1784346214282,
       "keyFiles": [
         "proxy.ts"
       ]
@@ -111,10 +118,9 @@
     "src\\app": {
       "path": "src\\app",
       "purpose": "Application code",
-      "fileCount": 3,
-      "lastAccessed": 1783750683437,
+      "fileCount": 2,
+      "lastAccessed": 1784346214283,
       "keyFiles": [
-        "favicon.ico",
         "globals.css",
         "layout.tsx"
       ]
@@ -123,14 +129,14 @@
       "path": "src\\components",
       "purpose": "UI components",
       "fileCount": 0,
-      "lastAccessed": 1783750683437,
+      "lastAccessed": 1784346214284,
       "keyFiles": []
     },
     "src\\lib": {
       "path": "src\\lib",
       "purpose": "Library code",
       "fileCount": 25,
-      "lastAccessed": 1783750683437,
+      "lastAccessed": 1784346214284,
       "keyFiles": [
         "api-middleware.ts",
         "audit.ts",
@@ -141,12 +147,313 @@
       "path": "src\\types",
       "purpose": "Type definitions",
       "fileCount": 1,
-      "lastAccessed": 1783750683438,
+      "lastAccessed": 1784346214284,
       "keyFiles": [
         "index.ts"
       ]
     }
   },
-  "hotPaths": [],
+  "hotPaths": [
+    {
+      "path": "src/app/api/tickets/route.ts",
+      "accessCount": 17,
+      "lastAccessed": 1784431385398,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(dashboard)/tickets/new/page.tsx",
+      "accessCount": 13,
+      "lastAccessed": 1784423029948,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(dashboard)/admin/ticket-settings/page.tsx",
+      "accessCount": 10,
+      "lastAccessed": 1784422968695,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/tickets/[id]/route.ts",
+      "accessCount": 10,
+      "lastAccessed": 1784424174653,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(dashboard)/admin/users/page.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1784428820536,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/tickets/[id]/comments/route.ts",
+      "accessCount": 9,
+      "lastAccessed": 1784431228866,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(dashboard)/tickets/[id]/page.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1784424306129,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/sla.ts",
+      "accessCount": 5,
+      "lastAccessed": 1784424660484,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/seed.ts",
+      "accessCount": 5,
+      "lastAccessed": 1784426005225,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/tasks/[id]/route.ts",
+      "accessCount": 5,
+      "lastAccessed": 1784431073295,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/models/Ticket.ts",
+      "accessCount": 4,
+      "lastAccessed": 1784422919949,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/purchases/[id]/route.ts",
+      "accessCount": 4,
+      "lastAccessed": 1784430904293,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/users/route.ts",
+      "accessCount": 3,
+      "lastAccessed": 1784414794747,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/assets/route.ts",
+      "accessCount": 3,
+      "lastAccessed": 1784414807133,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/audit/route.ts",
+      "accessCount": 3,
+      "lastAccessed": 1784414813476,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/assets/[id]/route.ts",
+      "accessCount": 3,
+      "lastAccessed": 1784414858382,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/nav-config.ts",
+      "accessCount": 3,
+      "lastAccessed": 1784422968848,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(dashboard)/tickets/page.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1784423390544,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/seed/route.ts",
+      "accessCount": 3,
+      "lastAccessed": 1784426005461,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/parse-spreadsheet.ts",
+      "accessCount": 3,
+      "lastAccessed": 1784426822748,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/brand/upload/route.ts",
+      "accessCount": 3,
+      "lastAccessed": 1784427021039,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/settings/route.ts",
+      "accessCount": 3,
+      "lastAccessed": 1784427045036,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/auth.ts",
+      "accessCount": 3,
+      "lastAccessed": 1784427548966,
+      "type": "file"
+    },
+    {
+      "path": "src/components/providers/brand-provider.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1784429743283,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/db.ts",
+      "accessCount": 2,
+      "lastAccessed": 1784414589174,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/auth/login/route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1784414589414,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/auth/change-password/route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1784414599321,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/utils.ts",
+      "accessCount": 2,
+      "lastAccessed": 1784414769287,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/users/[id]/route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1784414852908,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/purchases/route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1784414861242,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/tasks/route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1784414863903,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(dashboard)/admin/sla-settings/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1784422919275,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/users/import/route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1784426803135,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/brand/media/[filename]/route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1784426968257,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/brand-storage.ts",
+      "accessCount": 2,
+      "lastAccessed": 1784426968490,
+      "type": "file"
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1784429743563,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/api-middleware.ts",
+      "accessCount": 1,
+      "lastAccessed": 1784414589615,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/onboarding/generate/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1784414617856,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/models/Settings.ts",
+      "accessCount": 1,
+      "lastAccessed": 1784416024966,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/ticket-load.ts",
+      "accessCount": 1,
+      "lastAccessed": 1784423339590,
+      "type": "file"
+    },
+    {
+      "path": "src/components/ui/meta-badge.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1784423470109,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/ticket-status.ts",
+      "accessCount": 1,
+      "lastAccessed": 1784423470309,
+      "type": "file"
+    },
+    {
+      "path": "C:/Users/Nanz/AppData/Local/Temp/claude/E--ITMS-ITMS/566decfe-432d-45d3-ac8f-dd719d283bb0/tasks/bdjk2tbun.output",
+      "accessCount": 1,
+      "lastAccessed": 1784424466979,
+      "type": "file"
+    },
+    {
+      "path": "C:/Users/Nanz/AppData/Local/Temp/claude/E--ITMS-ITMS/566decfe-432d-45d3-ac8f-dd719d283bb0/tasks/bqjrgmv5k.output",
+      "accessCount": 1,
+      "lastAccessed": 1784425315838,
+      "type": "file"
+    },
+    {
+      "path": "src/proxy.ts",
+      "accessCount": 1,
+      "lastAccessed": 1784425326375,
+      "type": "file"
+    },
+    {
+      "path": "scripts/drop-db.mjs",
+      "accessCount": 1,
+      "lastAccessed": 1784425950440,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/download-template.ts",
+      "accessCount": 1,
+      "lastAccessed": 1784426789984,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/templates/[kind]/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1784426803363,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/public-assets.ts",
+      "accessCount": 1,
+      "lastAccessed": 1784426803554,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/brand.ts",
+      "accessCount": 1,
+      "lastAccessed": 1784426946376,
+      "type": "file"
+    }
+  ],
   "userDirectives": []
 }

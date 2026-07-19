@@ -858,45 +858,46 @@ html.dark [role="menuitem"].text-red-400[data-highlighted] {
   transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
-html:not(.dark) .nav-item:not(.nav-item-active):not(.nav-item-sidebar-active) {
+/* Exclude all active variants (sidebar + top/bottom underline) */
+html:not(.dark) .nav-item:not(.nav-item-active):not(.nav-item-sidebar-active):not(.nav-item-hbar-active) {
   color: #0f172a;
 }
-html:not(.dark) .nav-item:not(.nav-item-active):not(.nav-item-sidebar-active) svg {
+html:not(.dark) .nav-item:not(.nav-item-active):not(.nav-item-sidebar-active):not(.nav-item-hbar-active) svg {
   color: #0f172a !important;
   stroke: #0f172a !important;
 }
-html:not(.dark) .nav-item:hover:not(.nav-item-active):not(.nav-item-sidebar-active) {
+html:not(.dark) .nav-item:hover:not(.nav-item-active):not(.nav-item-sidebar-active):not(.nav-item-hbar-active) {
   background-color: var(--accent);
   color: var(--sys-700, #1d4ed8);
 }
-html:not(.dark) .nav-item:hover:not(.nav-item-active):not(.nav-item-sidebar-active) svg {
+html:not(.dark) .nav-item:hover:not(.nav-item-active):not(.nav-item-sidebar-active):not(.nav-item-hbar-active) svg {
   color: var(--sys-700, #1d4ed8) !important;
   stroke: var(--sys-700, #1d4ed8) !important;
 }
 
-html.dark .nav-item:not(.nav-item-active):not(.nav-item-sidebar-active) {
+html.dark .nav-item:not(.nav-item-active):not(.nav-item-sidebar-active):not(.nav-item-hbar-active) {
   color: #f8fafc;
 }
-html.dark .nav-item:not(.nav-item-active):not(.nav-item-sidebar-active) svg {
+html.dark .nav-item:not(.nav-item-active):not(.nav-item-sidebar-active):not(.nav-item-hbar-active) svg {
   color: #f8fafc !important;
   stroke: #f8fafc !important;
 }
-html.dark .nav-item:hover:not(.nav-item-active):not(.nav-item-sidebar-active) {
+html.dark .nav-item:hover:not(.nav-item-active):not(.nav-item-sidebar-active):not(.nav-item-hbar-active) {
   background-color: var(--accent);
   color: var(--sys-300, #93c5fd);
 }
-html.dark .nav-item:hover:not(.nav-item-active):not(.nav-item-sidebar-active) svg {
+html.dark .nav-item:hover:not(.nav-item-active):not(.nav-item-sidebar-active):not(.nav-item-hbar-active) svg {
   color: var(--sys-300, #93c5fd) !important;
   stroke: var(--sys-300, #93c5fd) !important;
 }
 
-/* Top / bottom horizontal nav — keep solid pill active */
-.nav-item-active:not(.nav-item-sidebar) {
+/* Legacy solid-pill active (unused by current top/bottom underline nav) */
+.nav-item-active:not(.nav-item-sidebar):not(.nav-item-hbar) {
   background-color: var(--sys-600) !important;
   color: #ffffff !important;
   font-weight: 700;
 }
-.nav-item-active:not(.nav-item-sidebar) svg {
+.nav-item-active:not(.nav-item-sidebar):not(.nav-item-hbar) svg {
   color: #ffffff !important;
   stroke: #ffffff !important;
 }
@@ -1012,6 +1013,93 @@ html.dark .nav-item-sidebar.nav-item-sidebar-active {
     transition: none;
   }
 }
+
+/* =========================================================
+   TOP / BOTTOM BAR — animated underline (matches sidebar)
+   ========================================================= */
+.nav-item-hbar {
+  position: relative;
+  background-color: transparent !important;
+  overflow: visible;
+}
+
+/* Soft hover wash (no solid pill) */
+html:not(.dark) .nav-item-hbar:hover:not(.nav-item-hbar-active) {
+  background-color: color-mix(in srgb, var(--sys-500, #3b82f6) 8%, transparent) !important;
+  color: var(--sys-700, #1d4ed8) !important;
+}
+html.dark .nav-item-hbar:hover:not(.nav-item-hbar-active) {
+  background-color: color-mix(in srgb, var(--sys-400, #60a5fa) 12%, transparent) !important;
+  color: var(--sys-300, #93c5fd) !important;
+}
+
+/* Animated line — bottom edge for top bar, top edge for bottom bar */
+.nav-item-hbar::after {
+  content: "";
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--sys-500, #3b82f6) 20%,
+    var(--sys-400, #60a5fa) 50%,
+    var(--sys-500, #3b82f6) 80%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  transform: scaleX(0);
+  transform-origin: center;
+  opacity: 0;
+  transition:
+    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
+  pointer-events: none;
+}
+.nav-item-hbar-top::after {
+  bottom: 0.28rem;
+}
+.nav-item-hbar-bottom::after {
+  top: 0.28rem;
+}
+
+.nav-item-hbar:hover::after {
+  transform: scaleX(0.55);
+  opacity: 0.55;
+}
+
+.nav-item-hbar.nav-item-hbar-active {
+  background-color: transparent !important;
+  font-weight: 700;
+  color: var(--sys-600, #2563eb) !important;
+}
+html.dark .nav-item-hbar.nav-item-hbar-active {
+  color: var(--sys-300, #93c5fd) !important;
+}
+.nav-item-hbar.nav-item-hbar-active svg {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+.nav-item-hbar.nav-item-hbar-active > *:not(svg) {
+  color: inherit !important;
+}
+.nav-item-hbar.nav-item-hbar-active::after {
+  transform: scaleX(1);
+  opacity: 1;
+  animation: nav-underline-shimmer 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-item-hbar.nav-item-hbar-active::after {
+    animation: none;
+  }
+  .nav-item-hbar::after {
+    transition: none;
+  }
+}
+
 
 .nav-card-group:hover {
   border-color: transparent;

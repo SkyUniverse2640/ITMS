@@ -53,7 +53,6 @@ export const SUPERADMIN_NAV: AppNavItem[] = [
       { id: "sa-smtp", label: "SMTP Settings", href: "/admin/notification-settings", icon: "Mail", order: 0, section: "superadmin", superAdminOnly: true },
       { id: "sa-appearance", label: "Appearance Settings", href: "/admin/appearance", icon: "Palette", order: 1, section: "superadmin", superAdminOnly: true },
       { id: "sa-sites", label: "Site Settings", href: "/admin/site-settings", icon: "MapPin", order: 2, section: "superadmin", superAdminOnly: true },
-      { id: "sa-sla", label: "SLA Settings", href: "/admin/sla-settings", icon: "Clock", order: 3, section: "superadmin", superAdminOnly: true },
     ],
   },
   {

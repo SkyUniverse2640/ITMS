@@ -45,7 +45,21 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
   const body = await req.json();
-  const purchase = await Purchase.create({ ...body, requestedBy: session._id });
+  const purchase = await Purchase.create({
+    itemName: body.itemName,
+    description: body.description,
+    quantity: body.quantity,
+    unitCost: body.unitCost,
+    totalCost: body.totalCost,
+    vendor: body.vendor,
+    category: body.category,
+    priority: body.priority,
+    status: body.status,
+    approver: body.approver,
+    linkedAsset: body.linkedAsset,
+    notes: body.notes,
+    requestedBy: session._id,
+  });
 
   if (body.status === "Pending Approval" && purchase.approver) {
     await Notification.create({

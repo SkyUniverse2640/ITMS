@@ -25,7 +25,16 @@ import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/components/providers/auth-provider";
 import { formatDateTime, getInitials } from "@/lib/utils";
 import { StatusBadge, PriorityBadge } from "@/components/ui/meta-badge";
-import { ArrowLeft, Send, Clock, User, MessageSquare, ScrollText } from "lucide-react";
+import {
+  ArrowLeft,
+  Send,
+  Clock,
+  User,
+  MessageSquare,
+  ScrollText,
+  AlertTriangle,
+  CheckCircle2,
+} from "lucide-react";
 import {
   allowedNextStatuses,
   isPendingApproval,
@@ -33,6 +42,46 @@ import {
   TICKET_STATUS_NAMES,
 } from "@/lib/ticket-status";
 import { defaultStatusLogMessage } from "@/lib/ticket-logs";
+
+/** One SLA line (Respond / Resolve): binary OK or Breach + the due time. */
+function SlaRow({
+  label,
+  dueAt,
+  breached,
+  metAt,
+}: {
+  label: string;
+  dueAt?: string;
+  breached: boolean;
+  metAt?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 text-sm">
+      <div className="flex flex-col">
+        <span className="text-muted-foreground">{label}</span>
+        {dueAt && (
+          <span className="text-[11px] text-muted-foreground">
+            Due {formatDateTime(dueAt)}
+          </span>
+        )}
+        {metAt && (
+          <span className="text-[11px] text-muted-foreground">
+            {breached ? "Done" : "Met"} {formatDateTime(metAt)}
+          </span>
+        )}
+      </div>
+      {breached ? (
+        <span className="inline-flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400">
+          <AlertTriangle className="h-3.5 w-3.5 stroke-[2.5]" /> Breach
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 text-xs font-bold text-green-600 dark:text-green-400">
+          <CheckCircle2 className="h-3.5 w-3.5 stroke-[2.5]" /> OK
+        </span>
+      )}
+    </div>
+  );
+}
 
 export default function TicketDetailPage() {
   const { id } = useParams();
@@ -576,6 +625,27 @@ export default function TicketDetailPage() {
                   </div>
                 )}
               </div>
+
+              {(Boolean(ticket.slaRespondDueAt) || Boolean(ticket.slaDueAt)) && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">SLA Timeline</p>
+                    <SlaRow
+                      label="Respond"
+                      dueAt={ticket.slaRespondDueAt as string | undefined}
+                      breached={Boolean(ticket.slaRespondBreached)}
+                      metAt={ticket.slaRespondedAt as string | undefined}
+                    />
+                    <SlaRow
+                      label="Resolve"
+                      dueAt={ticket.slaDueAt as string | undefined}
+                      breached={Boolean(ticket.slaBreached)}
+                      metAt={(ticket.resolvedAt || ticket.closedAt) as string | undefined}
+                    />
+                  </div>
+                </>
+              )}
 
               {isTechOrAdmin &&
                 (ticket.status === "Closed" || ticket.status === "Reject") &&

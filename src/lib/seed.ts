@@ -144,11 +144,11 @@ export async function seedDatabase(options?: { force?: boolean }) {
     {
       key: "priorities",
       value: [
-        { id: "pri-vl", name: "Very Low", description: "Very Low Priority", color: "#94A3B8", slaId: "sla-default" },
-        { id: "pri-l", name: "Low", description: "Low Priority", color: "#3B82F6", slaId: "sla-default" },
-        { id: "pri-n", name: "Normal", description: "Normal Priority", color: "#22C55E", slaId: "sla-default" },
-        { id: "pri-h", name: "High", description: "High Priority", color: "#F97316", slaId: "sla-default" },
-        { id: "pri-vh", name: "Very High", description: "Very High Priority", color: "#EF4444", slaId: "sla-default" },
+        { id: "pri-vl", name: "Very Low", description: "Very Low Priority", color: "#94A3B8", respondTime: 480, resolveTime: 2880 },
+        { id: "pri-l", name: "Low", description: "Low Priority", color: "#3B82F6", respondTime: 240, resolveTime: 1440 },
+        { id: "pri-n", name: "Normal", description: "Normal Priority", color: "#22C55E", respondTime: 120, resolveTime: 480 },
+        { id: "pri-h", name: "High", description: "High Priority", color: "#F97316", respondTime: 60, resolveTime: 240 },
+        { id: "pri-vh", name: "Very High", description: "Very High Priority", color: "#EF4444", respondTime: 30, resolveTime: 60 },
       ],
     },
     // Categories empty until departments exist

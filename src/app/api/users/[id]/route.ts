@@ -34,21 +34,29 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const before = { displayName: user.displayName, email: user.email, role: user.role, userTypes: user.userTypes, status: user.status };
 
-  if (body.password) {
-    body.password = await bcryptjs.hash(body.password, 12);
-    // Admin-set password is temporary — user must change it on next login
-    body.mustChangePassword = true;
+  const ALLOWED_USER_FIELDS = new Set([
+    "displayName", "username", "email", "employeeId", "role",
+    "userTypes", "jobTitle", "department", "mobile", "site", "status", "password",
+  ]);
+  const sanitized: Record<string, unknown> = {};
+  for (const key of Object.keys(body)) {
+    if (ALLOWED_USER_FIELDS.has(key)) sanitized[key] = body[key];
+  }
+
+  if (sanitized.password) {
+    sanitized.password = await bcryptjs.hash(sanitized.password as string, 12);
+    sanitized.mustChangePassword = true;
   } else {
-    delete body.password;
+    delete sanitized.password;
   }
 
-  if (typeof body.status === "string") {
-    const s = body.status.toLowerCase();
-    if (s === "inactive") body.status = "Inactive";
-    else if (s === "active") body.status = "Active";
+  if (typeof sanitized.status === "string") {
+    const s = (sanitized.status as string).toLowerCase();
+    if (s === "inactive") sanitized.status = "Inactive";
+    else if (s === "active") sanitized.status = "Active";
   }
 
-  Object.assign(user, body);
+  Object.assign(user, sanitized);
   await user.save();
 
   await createAuditLog({

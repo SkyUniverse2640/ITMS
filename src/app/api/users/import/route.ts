@@ -104,7 +104,14 @@ export async function POST(req: NextRequest) {
     const rowNum = i + 2; // 1-based data row (row 1 = header)
     const raw = rows[i] as Record<string, unknown>;
     const displayName = String(raw.displayName ?? raw.displayname ?? "").trim();
-    const username = String(raw.username ?? "").trim().toLowerCase();
+    // Sanitize username: keep only letters, numbers, dot, underscore, hyphen.
+    // Apostrophes/spaces (e.g. "wildan.nafi'an") are stripped so valid people
+    // aren't rejected on import.
+    const username = String(raw.username ?? "")
+      .trim()
+      .toLowerCase()
+      // Apostrophe/spaces etc. (e.g. wildan.nafi'an) → strip, keep [a-z0-9._-]
+      .replace(/[^a-z0-9._-]/g, "");
     const email = String(raw.email ?? "").trim().toLowerCase();
     const employeeId = String(raw.employeeId ?? raw.employee_id ?? "").trim();
     const jobTitle = String(raw.jobTitle ?? raw.job_title ?? "").trim() || undefined;
@@ -129,6 +136,23 @@ export async function POST(req: NextRequest) {
     };
 
     try {
+      // Skip junk / section-break / orphan-parse rows with no identity keys
+      if (!displayName && !username && !email && !employeeId) {
+        continue;
+      }
+      // Incomplete identity (e.g. broken multiline CSV leftover) → clear fail
+      const missingIdentity = !username || !email || !employeeId || !displayName;
+      if (missingIdentity && !username && !email && !employeeId) {
+        results.push({
+          row: rowNum,
+          status: "failed",
+          error:
+            "Incomplete row (likely a line-break inside a quoted cell). Re-export CSV with quoted multi-line fields or fix the row.",
+          data: snapshot,
+        });
+        continue;
+      }
+
       const errors: string[] = [];
       if (!displayName) errors.push("displayName is required");
       if (!username) errors.push("username is required");
@@ -149,10 +173,17 @@ export async function POST(req: NextRequest) {
       }
       if (userTypes.length === 0) errors.push("at least one userType is required");
 
-      // Department must exist in Manage Department (or fail the row)
+      // Department must exist in Manage Department (exact name, case-insensitive)
       if (department) {
-        if (deptNames.size === 0 || !deptNames.has(department.toLowerCase())) {
-          errors.push("Department Invalid");
+        if (deptNames.size === 0) {
+          errors.push(
+            `Department Invalid: "${department}" (no departments configured — add them in Manage Departments first)`
+          );
+        } else if (!deptNames.has(department.toLowerCase())) {
+          const sample = [...deptNames].slice(0, 8).join(", ");
+          errors.push(
+            `Department Invalid: "${department}" must match Manage Departments exactly (e.g. ${sample}${deptNames.size > 8 ? ", …" : ""})`
+          );
         }
       }
 

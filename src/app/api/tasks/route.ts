@@ -39,7 +39,16 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
   const body = await req.json();
-  const task = await Task.create({ ...body, createdBy: session._id });
+  const task = await Task.create({
+    title: body.title,
+    description: body.description,
+    status: body.status,
+    priority: body.priority,
+    assignee: body.assignee,
+    dueDate: body.dueDate,
+    relatedTicket: body.relatedTicket,
+    createdBy: session._id,
+  });
 
   if (task.assignee.toString() !== session._id) {
     await Notification.create({

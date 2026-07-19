@@ -32,17 +32,52 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const purchase = await Purchase.findById(id);
   if (!purchase) return NextResponse.json({ success: false, error: "Purchase not found" }, { status: 404 });
 
+  // Access control: only SuperAdmin, the requester, or the assigned approver
+  // may modify a purchase. Approve/reject/complete is restricted further below.
+  const isSuperAdmin = session.role === "SuperAdmin";
+  const isRequester = purchase.requestedBy?.toString() === session._id;
+  const isApprover = purchase.approver?.toString() === session._id;
+  if (!isSuperAdmin && !isRequester && !isApprover) {
+    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+  }
+
   const before = { status: purchase.status };
 
-  if (body.approvalAction === "approve") {
-    body.status = "Approved";
-  } else if (body.approvalAction === "reject") {
-    body.status = "Rejected";
-    body.rejectionReason = body.rejectionReason || "";
+  const ALLOWED_PURCHASE_FIELDS = new Set([
+    "itemName", "description", "quantity", "unitCost", "totalCost",
+    "estimatedCost", "vendor", "category", "priority", "status",
+    "approver", "approvalAction", "rejectionReason", "notes",
+    "linkedAssetType",
+  ]);
+  const sanitized: Record<string, unknown> = {};
+  for (const key of Object.keys(body)) {
+    if (ALLOWED_PURCHASE_FIELDS.has(key)) sanitized[key] = body[key];
   }
-  delete body.approvalAction;
 
-  if (body.status === "Completed" && purchase.status !== "Completed") {
+  // Approve/reject/complete are approval decisions — only the assigned approver
+  // or a SuperAdmin may make them. A plain requester cannot self-approve.
+  const wantsApprovalDecision =
+    sanitized.approvalAction === "approve" ||
+    sanitized.approvalAction === "reject" ||
+    sanitized.status === "Approved" ||
+    sanitized.status === "Rejected" ||
+    sanitized.status === "Completed";
+  if (wantsApprovalDecision && !isSuperAdmin && !isApprover) {
+    return NextResponse.json(
+      { success: false, error: "Only the assigned approver can approve, reject, or complete this purchase" },
+      { status: 403 }
+    );
+  }
+
+  if (sanitized.approvalAction === "approve") {
+    sanitized.status = "Approved";
+  } else if (sanitized.approvalAction === "reject") {
+    sanitized.status = "Rejected";
+    sanitized.rejectionReason = sanitized.rejectionReason || "";
+  }
+  delete sanitized.approvalAction;
+
+  if (sanitized.status === "Completed" && purchase.status !== "Completed") {
     const asset = await Asset.create({
       name: purchase.itemName,
       assetType: purchase.linkedAssetType || "General",
@@ -53,10 +88,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       purchaseDate: new Date(),
       currentState: "In Warehouse",
     });
-    body.linkedAsset = asset._id;
+    sanitized.linkedAsset = asset._id;
   }
 
-  Object.assign(purchase, body);
+  Object.assign(purchase, sanitized);
   await purchase.save();
 
   await Notification.create({

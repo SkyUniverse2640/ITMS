@@ -7,6 +7,7 @@ import connectDB from "@/lib/db";
 import User from "@/lib/models/User";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
+import { escapeRegex } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
   const status = url.searchParams.get("status") || "";
 
   const filter: Record<string, unknown> = {};
-  const rx = (q: string) => ({ $regex: q, $options: "i" });
+  const rx = (q: string) => ({ $regex: escapeRegex(q), $options: "i" });
 
   /** Columns allowed for field-scoped search */
   const SEARCHABLE: Record<string, string> = {
@@ -101,10 +102,17 @@ export async function POST(req: NextRequest) {
   }
 
   const user = await User.create({
-    ...body,
+    displayName: body.displayName,
     username: body.username.toLowerCase(),
     email: body.email.toLowerCase(),
+    employeeId: body.employeeId,
     password: hashedPassword,
+    role: body.role,
+    userTypes: body.userTypes,
+    jobTitle: body.jobTitle,
+    department: body.department,
+    mobile: body.mobile,
+    site: body.site,
     status,
     mustChangePassword: true,
   });

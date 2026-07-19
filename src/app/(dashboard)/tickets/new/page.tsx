@@ -46,9 +46,9 @@ export default function NewTicketPage() {
   const [myAssets, setMyAssets] = useState<{ _id: string; name: string; assetTag: string }[]>([]);
   const [settings, setSettings] = useState<Record<string, unknown>>({});
   const [templates, setTemplates] = useState<TicketTemplate[]>([]);
-  /** Explicit category list (with department) — loaded separately for reliability */
   const [categoryItems, setCategoryItems] = useState<NamedItem[]>([]);
   const [departmentList, setDepartmentList] = useState<string[]>([]);
+  const [priorityMatrix, setPriorityMatrix] = useState<Record<string, Record<string, string>>>({});
 
   const isTechnician =
     user?.role === "SuperAdmin" || !!user?.userTypes?.includes("Technician");
@@ -56,10 +56,11 @@ export default function NewTicketPage() {
   const [form, setForm] = useState({
     requestType: "Incident",
     status: "Open",
+    impact: "Normal",
     urgency: "Normal",
     department: "",
     category: "",
-    subCategory: "Others", // free-form path = Others; template path = template name
+    subCategory: "Others",
     technician: "",
     project: "",
     subject: "",
@@ -120,7 +121,8 @@ export default function NewTicketPage() {
       fetch("/api/settings?key=ticketTemplates").then((r) => r.json()).catch(() => ({ data: [] })),
       fetch("/api/settings?key=ticketCategories").then((r) => r.json()).catch(() => ({ data: [] })),
       fetch("/api/settings?key=departments").then((r) => r.json()).catch(() => ({ data: [] })),
-    ]).then(([techRes, assetRes, settingsRes, tmplRes, catRes, grpRes]) => {
+      fetch("/api/settings?key=priorityMatrix").then((r) => r.json()).catch(() => ({ data: null })),
+    ]).then(([techRes, assetRes, settingsRes, tmplRes, catRes, grpRes, matrixRes]) => {
       setTechnicians(techRes.data || []);
       setMyAssets(assetRes.data || []);
       const all = (settingsRes.data || {}) as Record<string, unknown>;
@@ -146,12 +148,25 @@ export default function NewTicketPage() {
         byName.set(c.name, c);
       }
       setCategoryItems(Array.from(byName.values()));
+
+      if (matrixRes.data && typeof matrixRes.data === "object" && !Array.isArray(matrixRes.data)) {
+        setPriorityMatrix(matrixRes.data as Record<string, Record<string, string>>);
+      } else if (all.priorityMatrix && typeof all.priorityMatrix === "object") {
+        setPriorityMatrix(all.priorityMatrix as Record<string, Record<string, string>>);
+      }
     });
   }, []);
 
   const requestTypes = names(settings.requestTypes, ["Incident", "Request"]);
+  const impacts = names(settings.impacts, ["Very Low", "Low", "Normal", "High", "Very High"]);
   const urgencies = names(settings.urgencies, ["Very Low", "Low", "Normal", "High", "Very High"]);
   const departments = departmentList.length > 0 ? departmentList : names(settings.departments, ["IT"]);
+
+  const derivedPriority = useMemo(() => {
+    const row = priorityMatrix[form.impact];
+    if (row && row[form.urgency]) return row[form.urgency];
+    return form.urgency || "Normal";
+  }, [priorityMatrix, form.impact, form.urgency]);
 
   function departmentForCategory(categoryName: string): string {
     if (!categoryName) return departments[0] || "IT";
@@ -231,6 +246,7 @@ export default function NewTicketPage() {
       templateId,
       category,
       requestType: (d.requestType as string) || f.requestType,
+      impact: (d.impact as string) || f.impact,
       urgency: (d.urgency as string) || f.urgency,
       department,
       subject: (d.subject as string) || f.subject,
@@ -273,9 +289,8 @@ export default function NewTicketPage() {
       const body: Record<string, unknown> = {
         requestType: form.requestType,
         status,
+        impact: form.impact,
         urgency: form.urgency,
-        priority: form.urgency,
-        impact: "Normal",
         department: form.department,
         group: form.department, // legacy field kept in sync
         category: form.category || undefined,
@@ -386,7 +401,7 @@ export default function NewTicketPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-4">
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
                   Req Type
@@ -404,9 +419,7 @@ export default function NewTicketPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {requestTypes.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t}
-                        </SelectItem>
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -415,17 +428,26 @@ export default function NewTicketPage() {
 
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
-                  Status
-                  <Lock className="h-3 w-3 text-muted-foreground" />
+                  Impact
+                  {fromTemplate && <Lock className="h-3 w-3 text-muted-foreground" />}
                 </Label>
-                <div className="space-y-1">
-                  <Input value={effectiveStatus} disabled className={lockedFieldClass} />
-                  <p className="text-[11px] text-muted-foreground">
-                    {tmplNeedsApproval
-                      ? "Template need approval → Pending Approval (locked until Approve → Open)"
-                      : "Default Open. Technician mengubah status di ticket detail mengikuti hierarchy."}
-                  </p>
-                </div>
+                {fromTemplate ? (
+                  <Input value={form.impact} disabled className={lockedFieldClass} />
+                ) : (
+                  <Select
+                    value={form.impact}
+                    onValueChange={(v) => setForm({ ...form, impact: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {impacts.map((i) => (
+                        <SelectItem key={i} value={i}>{i}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -445,13 +467,37 @@ export default function NewTicketPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {urgencies.map((u) => (
-                        <SelectItem key={u} value={u}>
-                          {u}
-                        </SelectItem>
+                        <SelectItem key={u} value={u}>{u}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  Priority
+                  <Lock className="h-3 w-3 text-muted-foreground" />
+                </Label>
+                <Input value={derivedPriority} disabled className={lockedFieldClass} />
+                <p className="text-[11px] text-muted-foreground">
+                  Auto dari Impact × Urgency matrix
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  Status
+                  <Lock className="h-3 w-3 text-muted-foreground" />
+                </Label>
+                <Input value={effectiveStatus} disabled className={lockedFieldClass} />
+                <p className="text-[11px] text-muted-foreground">
+                  {tmplNeedsApproval
+                    ? "Template need approval → Pending Approval"
+                    : "Default Open. Status diubah di ticket detail."}
+                </p>
               </div>
             </div>
           </CardContent>

@@ -23,6 +23,7 @@ import type { UserType } from "@/types";
  */
 export function HorizontalNav({
   className,
+  placement = "top",
 }: {
   className?: string;
   placement?: "top" | "bottom";
@@ -68,13 +69,12 @@ export function HorizontalNav({
 
   const itemClass = (active: boolean) =>
     cn(
-      "nav-item group relative flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2",
+      "nav-item nav-item-hbar group relative flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2",
       "rounded-xl px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-[11px] sm:text-sm font-bold whitespace-nowrap min-w-[3.5rem] sm:min-w-[4.75rem]",
       "transition-all duration-150 ease-out border border-transparent touch-manipulation",
       "min-h-[44px]",
-      active
-        ? "nav-item-active bg-blue-600 text-white border-transparent shadow-md hover:bg-blue-700 hover:text-white"
-        : "bg-background text-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent dark:hover:text-accent-foreground"
+      `nav-item-hbar-${placement}`,
+      active && "nav-item-hbar-active"
     );
 
   return (

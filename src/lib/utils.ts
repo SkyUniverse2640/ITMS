@@ -35,6 +35,11 @@ export function generateTicketNumber(): string {
   return `TKT${y}${m}${rand}`;
 }
 
+/** Escape user input for safe use in MongoDB $regex (prevents ReDoS) */
+export function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function generateAssetTag(): string {
   const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
   return `AST-${rand}`;

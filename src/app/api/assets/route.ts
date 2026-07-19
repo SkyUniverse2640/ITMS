@@ -7,6 +7,7 @@ import Asset from "@/lib/models/Asset";
 import User from "@/lib/models/User";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
+import { escapeRegex } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
   const view = url.searchParams.get("view") || "";
 
   const filter: Record<string, unknown> = {};
-  const rx = (q: string) => ({ $regex: q, $options: "i" });
+  const rx = (q: string) => ({ $regex: escapeRegex(q), $options: "i" });
 
   const SEARCHABLE: Record<string, string> = {
     name: "name",
@@ -90,7 +91,28 @@ export async function POST(req: NextRequest) {
     if (assignedUser) body.department = (assignedUser as Record<string, unknown>).department;
   }
 
-  const asset = await Asset.create(body);
+  const asset = await Asset.create({
+    name: body.name,
+    assetType: body.assetType,
+    assetCategory: body.assetCategory,
+    assetTag: body.assetTag,
+    serialNumber: body.serialNumber,
+    vendor: body.vendor,
+    purchaseCost: body.purchaseCost,
+    purchaseDate: body.purchaseDate,
+    warrantyExpiredDate: body.warrantyExpiredDate,
+    currentState: body.currentState,
+    assignedTo: body.assignedTo,
+    department: body.department,
+    site: body.site,
+    licenseKey: body.licenseKey,
+    totalSeats: body.totalSeats,
+    seatsUsed: body.seatsUsed,
+    stockQuantity: body.stockQuantity,
+    reorderThreshold: body.reorderThreshold,
+    unit: body.unit,
+    comment: body.comment,
+  });
 
   await createAuditLog({
     actorId: session._id, actorName: session.displayName,

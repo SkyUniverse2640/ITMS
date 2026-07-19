@@ -27,7 +27,23 @@
       "Bash(cp C:/Users/Nanz/AppData/Local/Temp/claude/E--ITMS/5e22264b-8f35-4d2a-8715-04d95b9fa5c1/tasks/bz8ywqzcz.output /tmp/db5.log)",
       "Bash(curl.exe -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/login)",
       "Bash(docker rmi *)",
-      "PowerShell($p = Get-Process -Id 2600 -ErrorAction SilentlyContinue; if \\($p\\) { Write-Output \"PID 2600 = $\\($p.ProcessName\\)\" } else { Write-Output \"PID 2600 not found\" })"
+      "PowerShell($p = Get-Process -Id 2600 -ErrorAction SilentlyContinue; if \\($p\\) { Write-Output \"PID 2600 = $\\($p.ProcessName\\)\" } else { Write-Output \"PID 2600 not found\" })",
+      "Bash(npm -v)",
+      "Bash(bun -v)",
+      "Bash(netstat -ano)",
+      "Bash(bun run *)",
+      "Bash(MONGODB_URI=\"mongodb://127.0.0.1:27017/nexusdesk\" bun run *)",
+      "Bash(MONGODB_URI=\"mongodb://127.0.0.1:27017/nexusdesk\" node *)",
+      "Bash(curl -s -X POST http://localhost:3000/api/seed -H \"Content-Type: application/json\" -d '{}')",
+      "Bash(git rm *)",
+      "Bash(npx tsc *)",
+      "Bash(node -e \"console.log\\('next:', require\\('./node_modules/next/package.json'\\).version\\)\")",
+      "mcp__plugin_mongodb_mongodb__connect",
+      "mcp__plugin_mongodb_mongodb__find",
+      "mcp__plugin_mongodb_mongodb__list-databases",
+      "Bash(cd *)",
+      "mcp__plugin_mongodb_mongodb__drop-database",
+      "Bash(curl -s -X POST \"http://localhost:3000/api/seed\" -H \"Content-Type: application/json\" -d '{}' --max-time 60)"
     ]
   }
 }

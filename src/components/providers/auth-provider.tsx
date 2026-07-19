@@ -25,10 +25,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/me");
+      // Hung DB/dev server must not freeze the app on "Loading…" forever.
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch("/api/auth/me", {
+        signal: controller.signal,
+        cache: "no-store",
+      });
+      clearTimeout(timeout);
       if (res.ok) {
         const data = await res.json();
-        setUser(data.data);
+        setUser(data.data ?? null);
       } else {
         setUser(null);
       }

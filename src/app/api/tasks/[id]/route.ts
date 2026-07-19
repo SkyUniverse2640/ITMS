@@ -7,6 +7,22 @@ import Task from "@/lib/models/Task";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
 
+/** Only SuperAdmin, the assignee, or the creator may see/act on a task. */
+function canAccessTask(
+  task: { assignee?: unknown; createdBy?: unknown },
+  session: { _id: string; role: string }
+): boolean {
+  if (session.role === "SuperAdmin") return true;
+  const assigneeId =
+    task.assignee && typeof task.assignee === "object" && "_id" in task.assignee
+      ? String((task.assignee as { _id: unknown })._id)
+      : task.assignee != null
+        ? String(task.assignee)
+        : "";
+  const creatorId = task.createdBy != null ? String(task.createdBy) : "";
+  return assigneeId === session._id || creatorId === session._id;
+}
+
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -15,6 +31,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const task = await Task.findById(id).populate("assignee", "displayName").populate("relatedTicket", "ticketNumber subject").lean();
   if (!task) return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
+
+  if (!canAccessTask(task as { assignee?: unknown; createdBy?: unknown }, session)) {
+    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+  }
 
   return NextResponse.json({ success: true, data: task });
 }
@@ -29,8 +49,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const task = await Task.findById(id);
   if (!task) return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
 
+  if (!canAccessTask(task, session)) {
+    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+  }
+
+  const ALLOWED_TASK_FIELDS = new Set([
+    "title", "description", "status", "priority",
+    "assignee", "dueDate", "relatedTicket",
+  ]);
+  const sanitized: Record<string, unknown> = {};
+  for (const key of Object.keys(body)) {
+    if (ALLOWED_TASK_FIELDS.has(key)) sanitized[key] = body[key];
+  }
+
   const before = { status: task.status, priority: task.priority };
-  Object.assign(task, body);
+  Object.assign(task, sanitized);
   await task.save();
 
   await createAuditLog({
@@ -49,6 +82,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   await connectDB();
   const { id } = await params;
+  const existing = await Task.findById(id);
+  if (!existing) return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
+
+  if (!canAccessTask(existing, session)) {
+    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+  }
+
   const task = await Task.findByIdAndDelete(id);
   if (!task) return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
 

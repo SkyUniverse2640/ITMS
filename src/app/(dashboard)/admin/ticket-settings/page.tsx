@@ -1,9 +1,5 @@
 "use client";
 
-/**
- * Ticket Settings — SuperAdmin Requests Management
- * Status, Impact, Urgency, Priority (+SLA), Request Type, Closure Code
- */
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus } from "lucide-react";
+import { Plus, Clock } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { notifyTicketMetaChanged } from "@/components/providers/ticket-meta-provider";
 import { RowSettingsMenu } from "@/components/ui/row-settings-menu";
@@ -35,7 +31,6 @@ interface SimpleItem {
   id: string;
   name: string;
   description?: string;
-  /** Ticket ID prefix for Request Type (e.g. INC, REQ) → INC2607001 */
   ticketCode?: string;
 }
 
@@ -46,14 +41,21 @@ interface StatusItem extends SimpleItem {
 
 interface PriorityItem extends SimpleItem {
   color: string;
-  slaId?: string;
+  respondTime?: number;
+  resolveTime?: number;
 }
 
-interface SLAOption {
-  id: string;
-  name: string;
-  duration: number;
-}
+type PriorityMatrix = Record<string, Record<string, string>>;
+
+type TimeUnit = "minutes" | "hours" | "days";
+
+const DEFAULT_PRIORITY_MATRIX: PriorityMatrix = {
+  "Very Low": { "Very Low": "Very Low", Low: "Very Low", Normal: "Low", High: "Low", "Very High": "Normal" },
+  Low: { "Very Low": "Very Low", Low: "Low", Normal: "Low", High: "Normal", "Very High": "High" },
+  Normal: { "Very Low": "Low", Low: "Low", Normal: "Normal", High: "High", "Very High": "High" },
+  High: { "Very Low": "Low", Low: "Normal", Normal: "High", High: "High", "Very High": "Very High" },
+  "Very High": { "Very Low": "Normal", Low: "High", Normal: "High", High: "Very High", "Very High": "Very High" },
+};
 
 function genId() {
   return Math.random().toString(36).slice(2, 10);
@@ -70,6 +72,26 @@ function withIds<T extends { id?: string; name?: string }>(items: T[]): (T & { i
   });
 }
 
+function toDisplayTime(minutes: number): { value: number; unit: TimeUnit } {
+  if (!minutes || minutes <= 0) return { value: 0, unit: "minutes" };
+  if (minutes % 1440 === 0) return { value: minutes / 1440, unit: "days" };
+  if (minutes % 60 === 0) return { value: minutes / 60, unit: "hours" };
+  return { value: minutes, unit: "minutes" };
+}
+
+function toMinutes(value: number, unit: TimeUnit): number {
+  if (unit === "days") return value * 1440;
+  if (unit === "hours") return value * 60;
+  return value;
+}
+
+function formatDuration(mins: number): string {
+  if (!mins || mins <= 0) return "—";
+  if (mins % 1440 === 0) { const d = mins / 1440; return `${d} day${d > 1 ? "s" : ""}`; }
+  if (mins % 60 === 0) { const h = mins / 60; return `${h} hour${h > 1 ? "s" : ""}`; }
+  return `${mins} min`;
+}
+
 export default function TicketSettingsPage() {
   const { toast } = useToast();
   const [tab, setTab] = useState("statuses");
@@ -80,11 +102,11 @@ export default function TicketSettingsPage() {
   const [impacts, setImpacts] = useState<SimpleItem[]>([]);
   const [urgencies, setUrgencies] = useState<SimpleItem[]>([]);
   const [priorities, setPriorities] = useState<PriorityItem[]>([]);
+  const [priorityMatrix, setPriorityMatrix] = useState<PriorityMatrix>(DEFAULT_PRIORITY_MATRIX);
+  const [matrixSaving, setMatrixSaving] = useState(false);
   const [requestTypes, setRequestTypes] = useState<SimpleItem[]>([]);
   const [closureCodes, setClosureCodes] = useState<SimpleItem[]>([]);
-  const [slas, setSlas] = useState<SLAOption[]>([]);
 
-  // dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogKind, setDialogKind] = useState<string>("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -93,13 +115,13 @@ export default function TicketSettingsPage() {
     description: "",
     timerStop: false,
     color: "#3b82f6",
-    slaId: "",
     ticketCode: "",
   });
 
-  useEffect(() => {
-    loadAll();
-  }, []);
+  // SLA editing state
+  const [slaSaving, setSlaSaving] = useState(false);
+
+  useEffect(() => { loadAll(); }, []);
 
   async function loadSetting(key: string) {
     try {
@@ -117,7 +139,6 @@ export default function TicketSettingsPage() {
       body: JSON.stringify({ key, value }),
     });
     const ok = (await res.json()).success;
-    // Push live colors to dashboard / Requests / ticket detail
     if (ok && (key === "ticketStatuses" || key === "priorities")) {
       notifyTicketMetaChanged();
     }
@@ -141,34 +162,24 @@ export default function TicketSettingsPage() {
   }
 
   function normalizeTicketCodeInput(raw: string): string {
-    return raw
-      .trim()
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, "")
-      .slice(0, 8);
+    return raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
   }
 
   async function loadAll() {
     setLoading(true);
-    const [s, i, u, p, rt, cc, sla] = await Promise.all([
+    const [s, i, u, p, rt, cc, matrix] = await Promise.all([
       loadSetting("ticketStatuses"),
       loadSetting("impacts"),
       loadSetting("urgencies"),
       loadSetting("priorities"),
       loadSetting("requestTypes"),
       loadSetting("closureCodes"),
-      loadSetting("slaConfigs"),
+      loadSetting("priorityMatrix"),
     ]);
-    // Migrate to 6 system statuses (Pending Approval, Open, On Hold, In Progress, Closed, Reject)
     if (needsStatusMigration(s)) {
       const next = systemStatusesForSettings() as StatusItem[];
       await saveSetting("ticketStatuses", next);
       setStatuses(next);
-      toast({
-        title: "Ticket statuses updated",
-        description: "Now using the 6 system statuses with Time Stop flags",
-        variant: "success",
-      });
     } else if (s) {
       setStatuses(withIds(s as StatusItem[]) as StatusItem[]);
     } else {
@@ -179,23 +190,16 @@ export default function TicketSettingsPage() {
     if (p) setPriorities(withIds(p as PriorityItem[]) as PriorityItem[]);
     if (rt) setRequestTypes(normalizeSimple(rt));
     if (cc) setClosureCodes(normalizeSimple(cc));
-    if (Array.isArray(sla)) {
-      setSlas(
-        sla.map((x: { id?: string; name: string; duration: number }, idx: number) => ({
-          id: x.id || `sla-${idx}`,
-          name: x.name,
-          duration: x.duration,
-        }))
-      );
+    if (matrix && typeof matrix === "object" && !Array.isArray(matrix)) {
+      setPriorityMatrix(matrix as PriorityMatrix);
+    } else {
+      setPriorityMatrix(DEFAULT_PRIORITY_MATRIX);
     }
     setLoading(false);
   }
 
   const keyMap: Record<string, string> = {
     statuses: "ticketStatuses",
-    impacts: "impacts",
-    urgencies: "urgencies",
-    priorities: "priorities",
     requestTypes: "requestTypes",
     closureCodes: "closureCodes",
   };
@@ -203,18 +207,11 @@ export default function TicketSettingsPage() {
   function openNew(kind: string) {
     setDialogKind(kind);
     setEditingId(null);
-    setForm({
-      name: "",
-      description: "",
-      timerStop: false,
-      color: "#3b82f6",
-      slaId: "",
-      ticketCode: "",
-    });
+    setForm({ name: "", description: "", timerStop: false, color: "#3b82f6", ticketCode: "" });
     setDialogOpen(true);
   }
 
-  function openEdit(kind: string, item: SimpleItem | StatusItem | PriorityItem) {
+  function openEdit(kind: string, item: SimpleItem | StatusItem) {
     setDialogKind(kind);
     setEditingId(item.id);
     setForm({
@@ -222,83 +219,68 @@ export default function TicketSettingsPage() {
       description: item.description || "",
       timerStop: "timerStop" in item ? !!(item as StatusItem).timerStop : false,
       color: "color" in item ? (item as StatusItem).color || "#3b82f6" : "#3b82f6",
-      slaId: "slaId" in item ? (item as PriorityItem).slaId || "" : "",
       ticketCode: "ticketCode" in item ? String((item as SimpleItem).ticketCode || "") : "",
     });
     setDialogOpen(true);
   }
 
-  async function handleSave() {
-    if (!form.name.trim()) {
-      toast({ title: "Name required", variant: "destructive" });
-      return;
+  async function saveMatrixCell(impactName: string, urgencyName: string, priorityName: string) {
+    const next: PriorityMatrix = {
+      ...priorityMatrix,
+      [impactName]: { ...(priorityMatrix[impactName] || {}), [urgencyName]: priorityName },
+    };
+    setPriorityMatrix(next);
+    setMatrixSaving(true);
+    const ok = await saveSetting("priorityMatrix", next);
+    setMatrixSaving(false);
+    if (!ok) toast({ title: "Failed to save matrix", variant: "destructive" });
+  }
+
+  async function resetMatrixDefaults() {
+    setMatrixSaving(true);
+    const ok = await saveSetting("priorityMatrix", DEFAULT_PRIORITY_MATRIX);
+    setMatrixSaving(false);
+    if (ok) {
+      setPriorityMatrix(DEFAULT_PRIORITY_MATRIX);
+      toast({ title: "Priority matrix reset to defaults", variant: "success" });
     }
+  }
+
+  async function handleSave() {
+    if (!form.name.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
     if (dialogKind === "requestTypes") {
       const code = normalizeTicketCodeInput(form.ticketCode);
       if (code.length < 2) {
-        toast({
-          title: "Kode ID Ticket required",
-          description: "Min. 2 characters (A–Z, 0–9), e.g. INC or REQ",
-          variant: "destructive",
-        });
+        toast({ title: "Kode ID Ticket required", description: "Min. 2 characters (A–Z, 0–9)", variant: "destructive" });
         return;
       }
-      // Unique code among request types
-      const dup = requestTypes.some(
-        (rt) =>
-          rt.id !== editingId &&
-          normalizeTicketCodeInput(rt.ticketCode || "") === code
-      );
-      if (dup) {
-        toast({ title: "Kode ID Ticket already used by another Request Type", variant: "destructive" });
-        return;
-      }
+      const dup = requestTypes.some((rt) => rt.id !== editingId && normalizeTicketCodeInput(rt.ticketCode || "") === code);
+      if (dup) { toast({ title: "Kode ID Ticket already used", variant: "destructive" }); return; }
     }
     setSaving(true);
     const key = keyMap[dialogKind];
     let list: unknown[] = [];
-
     if (dialogKind === "statuses") list = [...statuses];
-    else if (dialogKind === "impacts") list = [...impacts];
-    else if (dialogKind === "urgencies") list = [...urgencies];
-    else if (dialogKind === "priorities") list = [...priorities];
     else if (dialogKind === "requestTypes") list = [...requestTypes];
     else if (dialogKind === "closureCodes") list = [...closureCodes];
 
     const ticketCode = normalizeTicketCodeInput(form.ticketCode);
-
     if (editingId) {
       list = (list as SimpleItem[]).map((item) => {
         if (item.id !== editingId) return item;
-        if (dialogKind === "statuses") {
-          return { ...item, name: form.name, description: form.description, timerStop: form.timerStop, color: form.color };
-        }
-        if (dialogKind === "priorities") {
-          return { ...item, name: form.name, description: form.description, color: form.color, slaId: form.slaId || undefined };
-        }
-        if (dialogKind === "requestTypes") {
-          return { ...item, name: form.name, description: form.description, ticketCode };
-        }
+        if (dialogKind === "statuses") return { ...item, name: form.name, description: form.description, timerStop: form.timerStop, color: form.color };
+        if (dialogKind === "requestTypes") return { ...item, name: form.name, description: form.description, ticketCode };
         return { ...item, name: form.name, description: form.description };
       });
     } else {
       const base = { id: genId(), name: form.name.trim(), description: form.description };
-      if (dialogKind === "statuses") {
-        list = [...list, { ...base, timerStop: form.timerStop, color: form.color }];
-      } else if (dialogKind === "priorities") {
-        list = [...list, { ...base, color: form.color, slaId: form.slaId || undefined }];
-      } else if (dialogKind === "requestTypes") {
-        list = [...list, { ...base, ticketCode }];
-      } else {
-        list = [...list, base];
-      }
+      if (dialogKind === "statuses") list = [...list, { ...base, timerStop: form.timerStop, color: form.color }];
+      else if (dialogKind === "requestTypes") list = [...list, { ...base, ticketCode }];
+      else list = [...list, base];
     }
 
     if (await saveSetting(key, list)) {
       if (dialogKind === "statuses") setStatuses(list as StatusItem[]);
-      if (dialogKind === "impacts") setImpacts(list as SimpleItem[]);
-      if (dialogKind === "urgencies") setUrgencies(list as SimpleItem[]);
-      if (dialogKind === "priorities") setPriorities(list as PriorityItem[]);
       if (dialogKind === "requestTypes") setRequestTypes(list as SimpleItem[]);
       if (dialogKind === "closureCodes") setClosureCodes(list as SimpleItem[]);
       setDialogOpen(false);
@@ -311,42 +293,37 @@ export default function TicketSettingsPage() {
     const key = keyMap[kind];
     let list: SimpleItem[] = [];
     if (kind === "statuses") list = statuses.filter((x) => x.id !== id) as SimpleItem[];
-    if (kind === "impacts") list = impacts.filter((x) => x.id !== id);
-    if (kind === "urgencies") list = urgencies.filter((x) => x.id !== id);
-    if (kind === "priorities") list = priorities.filter((x) => x.id !== id) as SimpleItem[];
     if (kind === "requestTypes") list = requestTypes.filter((x) => x.id !== id);
     if (kind === "closureCodes") list = closureCodes.filter((x) => x.id !== id);
-
     if (await saveSetting(key, list)) {
       if (kind === "statuses") setStatuses(list as StatusItem[]);
-      if (kind === "impacts") setImpacts(list);
-      if (kind === "urgencies") setUrgencies(list);
-      if (kind === "priorities") setPriorities(list as PriorityItem[]);
-      if (kind === "requestTypes") setRequestTypes(list);
-      if (kind === "closureCodes") setClosureCodes(list);
+      if (kind === "requestTypes") setRequestTypes(list as SimpleItem[]);
+      if (kind === "closureCodes") setClosureCodes(list as SimpleItem[]);
       toast({ title: "Deleted", variant: "success" });
-    } else toast({ title: "Failed to delete", variant: "destructive" });
+    }
+  }
+
+  async function saveSlaForPriority(priorityId: string, field: "respondTime" | "resolveTime", minutes: number) {
+    const updated = priorities.map((p) =>
+      p.id === priorityId ? { ...p, [field]: minutes } : p
+    );
+    setPriorities(updated);
+    setSlaSaving(true);
+    const ok = await saveSetting("priorities", updated);
+    setSlaSaving(false);
+    if (!ok) toast({ title: "Failed to save SLA", variant: "destructive" });
   }
 
   const dialogTitle: Record<string, string> = {
     statuses: "Status",
-    impacts: "Impact",
-    urgencies: "Urgency",
-    priorities: "Priority",
     requestTypes: "Request Type",
     closureCodes: "Closure Code",
   };
 
   function SimpleTable({
-    kind,
-    items,
-    newLabel,
-    showTicketCode = false,
+    kind, items, newLabel, showTicketCode = false,
   }: {
-    kind: string;
-    items: SimpleItem[];
-    newLabel: string;
-    showTicketCode?: boolean;
+    kind: string; items: SimpleItem[]; newLabel: string; showTicketCode?: boolean;
   }) {
     return (
       <Card>
@@ -373,9 +350,7 @@ export default function TicketSettingsPage() {
                   <TableHead>Name</TableHead>
                   {showTicketCode && <TableHead>Kode ID Ticket</TableHead>}
                   <TableHead className="hidden sm:table-cell">Description</TableHead>
-                  {showTicketCode && (
-                    <TableHead className="hidden md:table-cell">Contoh ID</TableHead>
-                  )}
+                  {showTicketCode && <TableHead className="hidden md:table-cell">Contoh ID</TableHead>}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -391,18 +366,14 @@ export default function TicketSettingsPage() {
                       <TableCell className="font-medium">{item.name}</TableCell>
                       {showTicketCode && (
                         <TableCell>
-                          <span className="font-mono text-sm font-semibold text-primary">
-                            {code || "—"}
-                          </span>
+                          <span className="font-mono text-sm font-semibold text-primary">{code || "—"}</span>
                         </TableCell>
                       )}
                       <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                         {item.description || "—"}
                       </TableCell>
                       {showTicketCode && (
-                        <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
-                          {sample}
-                        </TableCell>
+                        <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">{sample}</TableCell>
                       )}
                       <TableCell className="text-right">
                         <RowSettingsMenu
@@ -422,6 +393,58 @@ export default function TicketSettingsPage() {
     );
   }
 
+  function SlaTimeInput({ priorityId, field, currentMinutes }: {
+    priorityId: string; field: "respondTime" | "resolveTime"; currentMinutes: number;
+  }) {
+    const display = toDisplayTime(currentMinutes || 0);
+    const [value, setValue] = useState(display.value);
+    const [unit, setUnit] = useState<TimeUnit>(display.unit);
+
+    useEffect(() => {
+      const d = toDisplayTime(currentMinutes || 0);
+      setValue(d.value);
+      setUnit(d.unit);
+    }, [currentMinutes]);
+
+    function commit(newValue: number, newUnit: TimeUnit) {
+      const mins = toMinutes(Math.max(0, newValue), newUnit);
+      saveSlaForPriority(priorityId, field, mins);
+    }
+
+    return (
+      <div className="flex items-center gap-1.5">
+        <Input
+          type="number"
+          min={0}
+          className="w-20 h-8 text-sm"
+          value={value}
+          onChange={(e) => {
+            const v = parseInt(e.target.value) || 0;
+            setValue(v);
+          }}
+          onBlur={() => commit(value, unit)}
+        />
+        <Select
+          value={unit}
+          onValueChange={(v) => {
+            const newUnit = v as TimeUnit;
+            setUnit(newUnit);
+            commit(value, newUnit);
+          }}
+        >
+          <SelectTrigger className="w-24 h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="minutes">Minutes</SelectItem>
+            <SelectItem value="hours">Hours</SelectItem>
+            <SelectItem value="days">Days</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
@@ -435,20 +458,20 @@ export default function TicketSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Ticket Settings</h1>
         <p className="text-muted-foreground">
-          Status, Impact, Urgency, Priority, Request Type, Closure Code
+          Status, Priority Matrix, SLA, Request Type, Closure Code
         </p>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="statuses">Status</TabsTrigger>
-          <TabsTrigger value="impacts">Impact</TabsTrigger>
-          <TabsTrigger value="urgencies">Urgency</TabsTrigger>
-          <TabsTrigger value="priorities">Priority</TabsTrigger>
+          <TabsTrigger value="matrix">Priority Matrix</TabsTrigger>
+          <TabsTrigger value="sla">SLA</TabsTrigger>
           <TabsTrigger value="requestTypes">Request Type</TabsTrigger>
           <TabsTrigger value="closureCodes">Closure Code</TabsTrigger>
         </TabsList>
 
+        {/* Status Tab */}
         <TabsContent value="statuses">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -493,9 +516,7 @@ export default function TicketSettingsPage() {
                       <TableCell className="font-medium">
                         {s.name}
                         {s.timerStop ? (
-                          <span className="ml-2 text-[11px] font-normal text-muted-foreground">
-                            (Time Stop)
-                          </span>
+                          <span className="ml-2 text-[11px] font-normal text-muted-foreground">(Time Stop)</span>
                         ) : null}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
@@ -505,10 +526,7 @@ export default function TicketSettingsPage() {
                         {s.timerStop ? <Badge variant="outline">Timer stops</Badge> : "—"}
                       </TableCell>
                       <TableCell className="text-right">
-                        <RowSettingsMenu
-                          objectName={s.name}
-                          onEdit={() => openEdit("statuses", s)}
-                        />
+                        <RowSettingsMenu objectName={s.name} onEdit={() => openEdit("statuses", s)} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -518,74 +536,168 @@ export default function TicketSettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="impacts">
-          <SimpleTable kind="impacts" items={impacts} newLabel="Impacts" />
-        </TabsContent>
-        <TabsContent value="urgencies">
-          <SimpleTable kind="urgencies" items={urgencies} newLabel="Urgencies" />
-        </TabsContent>
-
-        <TabsContent value="priorities">
+        {/* Priority Matrix Tab */}
+        <TabsContent value="matrix">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-              <CardTitle className="text-lg">Priorities</CardTitle>
-              <Button size="sm" onClick={() => openNew("priorities")}>
-                <Plus className="h-4 w-4 mr-1" /> New Priority
+            <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-4">
+              <div>
+                <CardTitle className="text-lg">Priority Matrix</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1 font-normal max-w-2xl">
+                  Rows = Impact · Columns = Urgency · Cell = resulting Priority.
+                  Ticket priority is auto-derived from Impact × Urgency on creation.
+                  {matrixSaving ? " · Saving…" : ""}
+                </p>
+              </div>
+              <Button size="sm" variant="outline" onClick={resetMatrixDefaults} disabled={matrixSaving}>
+                Reset defaults
               </Button>
             </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Color</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>SLA</TableHead>
-                    <TableHead className="hidden sm:table-cell">Description</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {priorities.map((p, i) => (
-                    <TableRow key={p.id || p.name || i}>
-                      <TableCell>
-                        <div className="h-4 w-4 rounded-full border" style={{ backgroundColor: p.color }} />
-                      </TableCell>
-                      <TableCell className="font-medium">{p.name}</TableCell>
-                      <TableCell className="text-sm">
-                        {slas.find((s) => s.id === p.slaId)?.name || "—"}
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                        {p.description || "—"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <RowSettingsMenu
-                          objectName={p.name}
-                          onEdit={() => openEdit("priorities", p)}
-                          onDelete={() => handleDelete("priorities", p.id)}
-                        />
-                      </TableCell>
+            <CardContent className="overflow-x-auto">
+              {impacts.length === 0 || urgencies.length === 0 || priorities.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  Need Impact, Urgency, and Priority levels loaded (seed defaults).
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky left-0 z-10 bg-card min-w-[7rem]">
+                        Impact \ Urgency
+                      </TableHead>
+                      {urgencies.map((u) => (
+                        <TableHead key={u.id || u.name} className="text-center min-w-[8rem]">
+                          {u.name}
+                        </TableHead>
+                      ))}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {impacts.map((imp) => (
+                      <TableRow key={imp.id || imp.name}>
+                        <TableCell className="sticky left-0 z-10 bg-card font-medium">
+                          {imp.name}
+                        </TableCell>
+                        {urgencies.map((urg) => {
+                          const current =
+                            priorityMatrix[imp.name]?.[urg.name] ||
+                            DEFAULT_PRIORITY_MATRIX[imp.name]?.[urg.name] ||
+                            priorities[0]?.name || "";
+                          return (
+                            <TableCell key={`${imp.name}-${urg.name}`} className="p-2">
+                              <Select
+                                value={current || "none"}
+                                onValueChange={(v) => {
+                                  if (v === "none") return;
+                                  void saveMatrixCell(imp.name, urg.name, v);
+                                }}
+                                disabled={matrixSaving}
+                              >
+                                <SelectTrigger className="h-9 min-w-[7.5rem]">
+                                  <SelectValue placeholder="Priority" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {priorities.map((p) => (
+                                    <SelectItem key={p.id || p.name} value={p.name}>
+                                      {p.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="requestTypes">
-          <SimpleTable
-            kind="requestTypes"
-            items={requestTypes}
-            newLabel="Request Types"
-            showTicketCode
-          />
+        {/* SLA Tab */}
+        <TabsContent value="sla">
+          <Card>
+            <CardHeader className="space-y-0 pb-4">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">SLA per Priority</CardTitle>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 font-normal">
+                Set Respond Time and Resolve Time for each priority level.
+                SLA status is binary: <strong>OK</strong> or <strong>Breach</strong>.
+                Time can be set in Minutes, Hours, or Days.
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              {priorities.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  No priority levels loaded. Run database seed first.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Respond Time</TableHead>
+                      <TableHead className="hidden sm:table-cell">Respond (summary)</TableHead>
+                      <TableHead>Resolve Time</TableHead>
+                      <TableHead className="hidden sm:table-cell">Resolve (summary)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {priorities.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="h-3 w-3 rounded-full border" style={{ backgroundColor: p.color }} />
+                            <span className="font-medium">{p.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <SlaTimeInput
+                            priorityId={p.id}
+                            field="respondTime"
+                            currentMinutes={p.respondTime || 0}
+                          />
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                          {formatDuration(p.respondTime || 0)}
+                        </TableCell>
+                        <TableCell>
+                          <SlaTimeInput
+                            priorityId={p.id}
+                            field="resolveTime"
+                            currentMinutes={p.resolveTime || 0}
+                          />
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                          {formatDuration(p.resolveTime || 0)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+          {slaSaving && (
+            <p className="text-xs text-muted-foreground text-center mt-2">Saving SLA…</p>
+          )}
         </TabsContent>
+
+        {/* Request Type Tab */}
+        <TabsContent value="requestTypes">
+          <SimpleTable kind="requestTypes" items={requestTypes} newLabel="Request Types" showTicketCode />
+        </TabsContent>
+
+        {/* Closure Code Tab */}
         <TabsContent value="closureCodes">
           <SimpleTable kind="closureCodes" items={closureCodes} newLabel="Closure Codes" />
         </TabsContent>
       </Tabs>
 
-      {/* Card overlay */}
+      {/* Dialog for Status / Request Type / Closure Code */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -601,23 +713,14 @@ export default function TicketSettingsPage() {
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
-              <Textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                rows={3}
-              />
+              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
             </div>
             {dialogKind === "requestTypes" && (
               <div className="space-y-2">
                 <Label>Kode ID Ticket *</Label>
                 <Input
                   value={form.ticketCode}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      ticketCode: normalizeTicketCodeInput(e.target.value),
-                    })
-                  }
+                  onChange={(e) => setForm({ ...form, ticketCode: normalizeTicketCodeInput(e.target.value) })}
                   placeholder="e.g. INC or REQ"
                   className="font-mono uppercase"
                   maxLength={8}
@@ -627,20 +730,15 @@ export default function TicketSettingsPage() {
                   <code className="text-xs">
                     {normalizeTicketCodeInput(form.ticketCode) || "KODE"}
                     {new Date().getFullYear().toString().slice(-2)}
-                    {(new Date().getMonth() + 1).toString().padStart(2, "0")}
-                    001
-                  </code>{" "}
-                  — Kode + tahun (YY) + bulan (MM) + urutan di bulan ini (001, 002, …)
+                    {(new Date().getMonth() + 1).toString().padStart(2, "0")}001
+                  </code>
                 </p>
               </div>
             )}
             {dialogKind === "statuses" && (
               <>
                 <div className="flex items-center gap-3">
-                  <Switch
-                    checked={form.timerStop}
-                    onCheckedChange={(v) => setForm({ ...form, timerStop: v })}
-                  />
+                  <Switch checked={form.timerStop} onCheckedChange={(v) => setForm({ ...form, timerStop: v })} />
                   <Label>Timer stop (pause SLA while on this status)</Label>
                 </div>
                 <div className="space-y-2">
@@ -652,62 +750,15 @@ export default function TicketSettingsPage() {
                       onChange={(e) => setForm({ ...form, color: e.target.value })}
                       className="h-10 w-14 cursor-pointer rounded border"
                     />
-                    <Input
-                      value={form.color}
-                      onChange={(e) => setForm({ ...form, color: e.target.value })}
-                      className="w-28"
-                    />
+                    <Input value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="w-28" />
                   </div>
-                </div>
-              </>
-            )}
-            {dialogKind === "priorities" && (
-              <>
-                <div className="space-y-2">
-                  <Label>Color</Label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
-                      value={form.color}
-                      onChange={(e) => setForm({ ...form, color: e.target.value })}
-                      className="h-10 w-14 cursor-pointer rounded border"
-                    />
-                    <Input
-                      value={form.color}
-                      onChange={(e) => setForm({ ...form, color: e.target.value })}
-                      className="w-28"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>SLA</Label>
-                  <Select
-                    value={form.slaId || "none"}
-                    onValueChange={(v) => setForm({ ...form, slaId: v === "none" ? "" : v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select SLA" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {slas.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name} ({s.duration} min)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               </>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : "Save"}
-            </Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -55,6 +55,9 @@ export interface ITicket extends Document {
   reopenedAt?: Date;
   slaBreached: boolean;
   slaDueAt?: Date;
+  slaRespondDueAt?: Date;
+  slaRespondBreached: boolean;
+  slaRespondedAt?: Date;
   slaConfig?: mongoose.Types.ObjectId;
   comments: IComment[];
   logs: ITicketLog[];
@@ -117,6 +120,9 @@ const TicketSchema = new Schema<ITicket>(
     reopenedAt: Date,
     slaBreached: { type: Boolean, default: false },
     slaDueAt: Date,
+    slaRespondDueAt: Date,
+    slaRespondBreached: { type: Boolean, default: false },
+    slaRespondedAt: Date,
     slaConfig: { type: Schema.Types.ObjectId, ref: "SLA" },
     comments: [CommentSchema],
     logs: {

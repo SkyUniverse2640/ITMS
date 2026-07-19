@@ -26,6 +26,7 @@ import {
   parseSpreadsheetFile,
 } from "@/lib/parse-spreadsheet";
 import { downloadImportTemplate } from "@/lib/download-template";
+import { ImportOverlay } from "@/components/ui/import-overlay";
 import { cn, formatDateTime } from "@/lib/utils";
 import { ColumnResizeHandle, TruncateTooltip } from "@/components/ui/truncate-tooltip";
 
@@ -178,6 +179,7 @@ export default function UsersPage() {
   const [saving, setSaving] = useState(false);
 
   const [importing, setImporting] = useState(false);
+  const [importFileName, setImportFileName] = useState<string>("");
   const [importResultOpen, setImportResultOpen] = useState(false);
   const [lastImport, setLastImport] = useState<{
     summary: { total: number; created: number; updated: number; failed: number };
@@ -397,6 +399,7 @@ export default function UsersPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    setImportFileName(file.name);
     setImporting(true);
     try {
       const rawRows = await parseSpreadsheetFile(file);
@@ -610,6 +613,12 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
+      <ImportOverlay
+        open={importing}
+        kind="spreadsheet"
+        label="Importing users…"
+        detail={importFileName || undefined}
+      />
       {/* Header — actions: top 2 primary, bottom 3 import tools */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">

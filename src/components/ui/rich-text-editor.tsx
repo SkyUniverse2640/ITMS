@@ -6,6 +6,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
+import { sanitizeRichText } from "@/lib/sanitize-html";
 import {
   Bold,
   Italic,
@@ -347,6 +348,10 @@ export function RichTextContent({
     );
   }
 
+  // Sanitize stored HTML before injecting it into the DOM. Ticket
+  // descriptions/comments are user-supplied, so this blocks stored XSS.
+  const safeHtml = sanitizeRichText(content);
+
   return (
     <div
       className={cn(
@@ -355,7 +360,7 @@ export function RichTextContent({
       )}
       contentEditable={false}
       suppressContentEditableWarning
-      dangerouslySetInnerHTML={{ __html: content }}
+      dangerouslySetInnerHTML={{ __html: safeHtml }}
     />
   );
 }

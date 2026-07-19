@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { ASSET_STATE_COLORS, cn } from "@/lib/utils";
 import { downloadImportTemplate } from "@/lib/download-template";
+import { ImportOverlay } from "@/components/ui/import-overlay";
 import { canonicalizeAssetRow, parseSpreadsheetFile } from "@/lib/parse-spreadsheet";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -91,6 +92,7 @@ export default function ManageAllAssetsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [importFileName, setImportFileName] = useState<string>("");
 
   const [columns, setColumns] = useState<ColumnDef<ColId>[]>(() =>
     DEFAULT_COLUMNS.map((c) => ({ ...c }))
@@ -163,6 +165,7 @@ export default function ManageAllAssetsPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    setImportFileName(file.name);
     setImporting(true);
     try {
       const rawRows = await parseSpreadsheetFile(file);
@@ -323,6 +326,12 @@ export default function ManageAllAssetsPage() {
 
   return (
     <div className="space-y-6">
+      <ImportOverlay
+        open={importing}
+        kind="spreadsheet"
+        label="Importing assets…"
+        detail={importFileName || undefined}
+      />
       {/* Header — top primary actions, bottom import tools (same as Users) */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">

@@ -35,12 +35,24 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const before = { assignedTo: asset.assignedTo?.toString(), currentState: asset.currentState };
 
-  if (body.assignedTo && body.assignedTo !== asset.assignedTo?.toString()) {
-    const assignedUser = await User.findById(body.assignedTo).lean();
-    if (assignedUser) body.department = (assignedUser as Record<string, unknown>).department;
+  const ALLOWED_ASSET_FIELDS = new Set([
+    "name", "assetType", "assetCategory", "assetTag", "serialNumber",
+    "vendor", "purchaseCost", "purchaseDate", "warrantyExpiredDate",
+    "currentState", "assignedTo", "department", "site", "licenseKey",
+    "totalSeats", "seatsUsed", "stockQuantity", "reorderThreshold",
+    "unit", "comment",
+  ]);
+  const sanitized: Record<string, unknown> = {};
+  for (const key of Object.keys(body)) {
+    if (ALLOWED_ASSET_FIELDS.has(key)) sanitized[key] = body[key];
+  }
+
+  if (sanitized.assignedTo && sanitized.assignedTo !== asset.assignedTo?.toString()) {
+    const assignedUser = await User.findById(sanitized.assignedTo).lean();
+    if (assignedUser) sanitized.department = (assignedUser as Record<string, unknown>).department;
 
     await Notification.create({
-      recipient: body.assignedTo,
+      recipient: sanitized.assignedTo,
       title: "Asset Assigned",
       message: `Asset ${asset.assetTag} (${asset.name}) has been assigned to you`,
       type: "asset_assigned",
@@ -48,7 +60,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
   }
 
-  Object.assign(asset, body);
+  Object.assign(asset, sanitized);
   await asset.save();
 
   await createAuditLog({

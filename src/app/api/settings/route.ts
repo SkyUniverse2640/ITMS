@@ -7,6 +7,8 @@ import { Settings } from "@/lib/models/Settings";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
 
+const SENSITIVE_KEYS = new Set(["smtp"]);
+
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -15,14 +17,22 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const key = url.searchParams.get("key");
 
+  const isSuperAdmin = session.role === "SuperAdmin";
+
   if (key) {
+    if (SENSITIVE_KEYS.has(key) && !isSuperAdmin) {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    }
     const setting = await Settings.findOne({ key }).lean();
     return NextResponse.json({ success: true, data: setting?.value ?? null });
   }
 
   const settings = await Settings.find().lean();
   const result: Record<string, unknown> = {};
-  for (const s of settings) result[s.key] = s.value;
+  for (const s of settings) {
+    if (SENSITIVE_KEYS.has(s.key) && !isSuperAdmin) continue;
+    result[s.key] = s.value;
+  }
 
   return NextResponse.json({ success: true, data: result });
 }

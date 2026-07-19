@@ -58,41 +58,98 @@ export function canonicalizeUserRow(raw: RowObject): Record<string, string> {
   return out;
 }
 
-function parseCsvLine(line: string): string[] {
-  const cells: string[] = [];
+/**
+ * Detect the field delimiter from the header line.
+ * A file is semicolon-delimited whenever the header has more `;` than `,`
+ * (common in locales where `,` is the decimal separator). Splitting on BOTH
+ * would shred fields that legitimately contain commas \u2014 e.g. a department
+ * named "IT Infrastructure, Network, & Security".
+ */
+function detectDelimiter(headerLine: string): string {
+  let semi = 0;
+  let comma = 0;
+  let inQuotes = false;
+  for (const ch of headerLine) {
+    if (ch === '"') inQuotes = !inQuotes;
+    else if (!inQuotes && ch === ";") semi++;
+    else if (!inQuotes && ch === ",") comma++;
+  }
+  return semi > comma ? ";" : ",";
+}
+
+/**
+ * Full-text CSV parser (RFC-4180-ish). Handles:
+ *  - quoted fields containing the delimiter, and
+ *  - quoted fields containing embedded newlines (a cell that wraps across
+ *    physical lines, e.g. a job title split over two lines).
+ * Returns an array of rows, each an array of raw cell strings.
+ */
+function parseCsvRows(text: string, delimiter: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
   let cur = "";
   let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
+  let field = false; // any content seen for the current record
+
+  const pushField = () => {
+    row.push(
+      cur
+        .trim()
+        .replace(/^"|"$/g, "")
+        .replace(/""/g, '"')
+        .replace(/[\r\n]+/g, " ") // collapse newlines inside quoted cells
+        .trim()
+    );
+    cur = "";
+  };
+  const pushRow = () => {
+    pushField();
+    rows.push(row);
+    row = [];
+    field = false;
+  };
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
     if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
+      if (inQuotes && text[i + 1] === '"') {
         cur += '"';
         i++;
       } else {
         inQuotes = !inQuotes;
+        cur += ch; // keep quote; stripped in pushField
       }
-    } else if ((ch === "," || ch === ";") && !inQuotes) {
-      cells.push(cur);
-      cur = "";
+      field = true;
+    } else if (ch === delimiter && !inQuotes) {
+      pushField();
+      field = true;
+    } else if ((ch === "\n" || ch === "\r") && !inQuotes) {
+      // Normalize CRLF: skip the \n after a \r
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      if (field || cur.length > 0 || row.length > 0) pushRow();
     } else {
       cur += ch;
+      field = true;
     }
   }
-  cells.push(cur);
-  return cells.map((c) => c.trim().replace(/^"|"$/g, ""));
+  // Trailing record without newline
+  if (field || cur.length > 0 || row.length > 0) pushRow();
+  return rows;
 }
 
 export function parseCsv(text: string): RowObject[] {
-  const lines = text
-    .replace(/^\uFEFF/, "")
-    .split(/\r?\n/)
-    .filter((l) => l.trim().length > 0);
-  if (lines.length < 2) return [];
-  const headers = parseCsvLine(lines[0]).map(normalizeHeader);
+  const clean = text.replace(/^\uFEFF/, "");
+  // Header delimiter is detected from the first physical line only.
+  const firstLine = clean.split(/\r?\n/, 1)[0] || "";
+  const delimiter = detectDelimiter(firstLine);
+  const raw = parseCsvRows(clean, delimiter).filter(
+    (cells) => !cells.every((c) => !c)
+  );
+  if (raw.length < 2) return [];
+  const headers = raw[0].map(normalizeHeader);
   const rows: RowObject[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cells = parseCsvLine(lines[i]);
-    if (cells.every((c) => !c)) continue;
+  for (let i = 1; i < raw.length; i++) {
+    const cells = raw[i];
     const row: RowObject = {};
     headers.forEach((h, idx) => {
       row[h] = cells[idx] ?? "";

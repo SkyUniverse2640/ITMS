@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/toast";
 import { useBrand } from "@/components/providers/brand-provider";
 import { toBrandMediaUrl } from "@/lib/public-assets";
+import { ImportOverlay } from "@/components/ui/import-overlay";
 import {
   DEFAULT_ICON,
   DEFAULT_LOGO,
@@ -212,6 +213,19 @@ export default function AppearancePage() {
 
   return (
     <div className="max-w-2xl space-y-6">
+      <ImportOverlay
+        open={uploading !== null}
+        kind={uploading === "font" ? "generic" : "image"}
+        label={
+          uploading === "logo"
+            ? "Uploading logo…"
+            : uploading === "icon"
+              ? "Uploading app icon…"
+              : uploading === "font"
+                ? "Uploading font…"
+                : "Uploading…"
+        }
+      />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Appearance</h1>

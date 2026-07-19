@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import AuditLog from "@/lib/models/AuditLog";
 import { getSession } from "@/lib/auth";
+import { escapeRegex } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -26,9 +27,10 @@ export async function GET(req: NextRequest) {
   if (module) filter.module = module;
   if (action) filter.action = action;
   if (search) {
+    const escaped = escapeRegex(search);
     filter.$or = [
-      { actorName: { $regex: search, $options: "i" } },
-      { targetLabel: { $regex: search, $options: "i" } },
+      { actorName: { $regex: escaped, $options: "i" } },
+      { targetLabel: { $regex: escaped, $options: "i" } },
     ];
   }
 

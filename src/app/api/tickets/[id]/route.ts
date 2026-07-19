@@ -9,7 +9,7 @@ import User from "@/lib/models/User";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
 import { notifyUser, resolveSlaNotifyRecipients, notifyUsers } from "@/lib/notify";
-import { getSlaEscalationRoles } from "@/lib/sla";
+import { computeSlaDueDates, computeSlaFlags, getSlaEscalationRoles } from "@/lib/sla";
 import {
   canTransitionStatus,
   isPendingApproval,
@@ -51,6 +51,26 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (!ticket) {
       return NextResponse.json({ success: false, error: "Ticket not found" }, { status: 404 });
     }
+
+    // Re-evaluate binary SLA (OK/Breach) on read; persist only when it flips.
+    const slaFlags = computeSlaFlags({
+      slaRespondDueAt: ticket.slaRespondDueAt as Date | undefined,
+      slaDueAt: ticket.slaDueAt as Date | undefined,
+      slaRespondedAt: ticket.slaRespondedAt as Date | undefined,
+      resolvedAt: ticket.resolvedAt as Date | undefined,
+      closedAt: ticket.closedAt as Date | undefined,
+    });
+    if (
+      slaFlags.slaBreached !== Boolean(ticket.slaBreached) ||
+      slaFlags.slaRespondBreached !== Boolean(ticket.slaRespondBreached)
+    ) {
+      await Ticket.updateOne(
+        { _id: id },
+        { $set: { slaBreached: slaFlags.slaBreached, slaRespondBreached: slaFlags.slaRespondBreached } }
+      );
+    }
+    ticket.slaBreached = slaFlags.slaBreached;
+    ticket.slaRespondBreached = slaFlags.slaRespondBreached;
 
     if (session.role !== "SuperAdmin" && !session.userTypes.includes("Auditor")) {
       const isRequester = refId(ticket.requester) === session._id;
@@ -143,6 +163,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     approvalAction = "approve";
     body.approvalStatus = "Approved";
     body.status = "Open";
+    // SLA clock starts when work can begin: exclude the approval wait by
+    // recomputing respond/resolve due dates from now on approve → Open.
+    const { respondDueAt, resolveDueAt } = await computeSlaDueDates(ticket.priority);
+    body.slaRespondDueAt = respondDueAt || undefined;
+    body.slaDueAt = resolveDueAt || undefined;
   } else if (body.approvalAction === "reject") {
     approvalAction = "reject";
     body.approvalStatus = "Rejected";
@@ -200,8 +225,23 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body.status === "Closed" && !ticket.closedAt) {
     body.closedAt = new Date();
   }
+  if (body.status === "Closed" && !ticket.resolvedAt) {
+    body.resolvedAt = new Date();
+  }
   if (body.status === "Reject" && !ticket.closedAt) {
     body.closedAt = new Date();
+  }
+
+  // Respond SLA stops at first technician engagement. "In Progress" (or any
+  // forward move off Open by staff) is the first response; stamp it once.
+  if (
+    !ticket.slaRespondedAt &&
+    nextStatus &&
+    nextStatus !== "Pending Approval" &&
+    nextStatus !== "Open" &&
+    !approvalAction
+  ) {
+    body.slaRespondedAt = new Date();
   }
 
   const wasBreached = ticket.slaBreached;
@@ -259,6 +299,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         : `Technician unassigned by ${session.displayName}`,
     });
   }
+
+  // Re-evaluate binary SLA before persisting so a status/response change that
+  // flips OK → Breach is saved and can trigger the breach notification below.
+  const slaFlags = computeSlaFlags({
+    slaRespondDueAt: ticket.slaRespondDueAt,
+    slaDueAt: ticket.slaDueAt,
+    slaRespondedAt: ticket.slaRespondedAt,
+    resolvedAt: ticket.resolvedAt,
+    closedAt: ticket.closedAt,
+  });
+  ticket.slaRespondBreached = slaFlags.slaRespondBreached;
+  ticket.slaBreached = slaFlags.slaBreached;
 
   await ticket.save();
 

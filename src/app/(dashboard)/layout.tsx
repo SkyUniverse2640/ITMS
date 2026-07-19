@@ -21,6 +21,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const onboardingCompleteRef = useRef(false);
   const checkingRef = useRef(false);
 
+  /**
+   * Watchdog: never spin forever if onboarding probe hangs (stuck.png).
+   * Fail-open so shell/onboarding can render.
+   */
+  useEffect(() => {
+    if (loading || !user || gateOk) return;
+    const t = setTimeout(() => {
+      onboardingCompleteRef.current = true;
+      checkingRef.current = false;
+      setGateOk(true);
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [loading, user, gateOk]);
+
   useEffect(() => {
     if (loading) return;
 
@@ -52,16 +66,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
+    // StrictMode remount / path change must re-run; never leave checkingRef stuck true.
     if (checkingRef.current) return;
     checkingRef.current = true;
 
     let cancelled = false;
+    const controller = new AbortController();
+    const abortTimer = setTimeout(() => controller.abort(), 3500);
+
     (async () => {
       try {
-        const res = await fetch("/api/onboarding", { cache: "no-store" });
+        const res = await fetch("/api/onboarding", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
         const data = await res.json();
         if (cancelled) return;
         if (data.success && data.data?.needsOnboarding) {
+          // Unlock gate so redirect target can paint; onboarding path re-gates.
+          setGateOk(true);
           router.replace("/admin/onboarding");
           return;
         }
@@ -69,17 +92,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setGateOk(true);
       } catch {
         if (!cancelled) {
-          // Fail open so shell still works offline
+          // Fail open so shell still works offline / hung API
           onboardingCompleteRef.current = true;
           setGateOk(true);
         }
       } finally {
+        clearTimeout(abortTimer);
         checkingRef.current = false;
       }
     })();
 
     return () => {
       cancelled = true;
+      clearTimeout(abortTimer);
+      controller.abort();
+      // Critical: cleanup MUST free the lock or remount permanently skips the probe.
+      checkingRef.current = false;
     };
   }, [user, loading, router, pathname]);
 

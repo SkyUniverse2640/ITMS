@@ -27,6 +27,7 @@ import {
   parseSpreadsheetFile,
 } from "@/lib/parse-spreadsheet";
 import { downloadImportTemplate } from "@/lib/download-template";
+import { ImportOverlay } from "@/components/ui/import-overlay";
 import { cn, formatDateTime } from "@/lib/utils";
 import {
   type ColumnDef,
@@ -105,6 +106,7 @@ export default function DepartmentsPage() {
   const [page, setPage] = useState(1);
 
   const [importing, setImporting] = useState(false);
+  const [importFileName, setImportFileName] = useState<string>("");
   const [importResultOpen, setImportResultOpen] = useState(false);
   const [lastImport, setLastImport] = useState<{
     summary: { total: number; created: number; updated: number; failed: number };
@@ -143,27 +145,36 @@ export default function DepartmentsPage() {
   async function load() {
     setLoading(true);
     try {
-      const [deptRes, usersRes] = await Promise.all([
-        fetch("/api/settings?key=departments"),
-        fetch("/api/users?limit=100"),
-      ]);
+      const deptRes = await fetch("/api/settings?key=departments");
       const data = await deptRes.json();
       if (data.success && Array.isArray(data.data)) {
         setItems(data.data.map((x: unknown, i: number) => normalizeDepartment(x, i)));
       } else {
         setItems([]);
       }
-      const uData = await usersRes.json();
-      if (uData.success && Array.isArray(uData.data)) {
-        setAllUsers(
-          uData.data.map((u: UserOption) => ({
+
+      // Load ALL users (paginated) so department-scoped role pickers see everyone,
+      // not just the first page (was capped at 100 → missed members).
+      const collected: UserOption[] = [];
+      const limit = 100;
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const uRes = await fetch(`/api/users?limit=${limit}&page=${page}`);
+        const uData = await uRes.json();
+        if (!uData.success || !Array.isArray(uData.data)) break;
+        for (const u of uData.data as UserOption[]) {
+          collected.push({
             _id: u._id,
             displayName: u.displayName,
             email: u.email,
             department: u.department,
-          }))
-        );
-      }
+          });
+        }
+        totalPages = uData.pagination?.totalPages || 1;
+        page += 1;
+      } while (page <= totalPages && page <= 100);
+      setAllUsers(collected);
     } catch {
       setItems([]);
     }
@@ -188,15 +199,24 @@ export default function DepartmentsPage() {
   }
 
   const roleUsersFiltered = useMemo(() => {
+    // Only people who belong to THIS department (case/space-insensitive exact name).
+    const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+    const deptName = roleDialog
+      ? norm(items.find((d) => d.id === roleDialog.deptId)?.name || "")
+      : "";
+    let base = allUsers;
+    if (deptName) {
+      base = allUsers.filter((u) => norm(u.department || "") === deptName);
+    }
     const q = roleSearchApplied.trim().toLowerCase();
-    if (!q) return allUsers;
-    return allUsers.filter(
+    if (!q) return base;
+    return base.filter(
       (u) =>
         (u.displayName || "").toLowerCase().includes(q) ||
         (u.email || "").toLowerCase().includes(q) ||
         (u.department || "").toLowerCase().includes(q)
     );
-  }, [allUsers, roleSearchApplied]);
+  }, [allUsers, roleSearchApplied, roleDialog, items]);
 
   function toggleRoleUser(userId: string) {
     setRolePick((prev) =>
@@ -335,6 +355,7 @@ export default function DepartmentsPage() {
   }
 
   async function generateRecommendation() {
+    setImportFileName("");
     setImporting(true);
     try {
       const res = await fetch("/api/onboarding/generate", {
@@ -369,6 +390,7 @@ export default function DepartmentsPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    setImportFileName(file.name);
     setImporting(true);
     try {
       const rawRows = await parseSpreadsheetFile(file);
@@ -548,7 +570,12 @@ export default function DepartmentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header — top 2, bottom 3 (same as Manage Users) */}
+      <ImportOverlay
+        open={importing}
+        kind="spreadsheet"
+        label="Importing departments…"
+        detail={importFileName || undefined}
+      />
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
@@ -1081,18 +1108,15 @@ export default function DepartmentsPage() {
           </div>
           {rolePick.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              {rolePick.length} selected
-              {roleSearchApplied.trim()
-                ? ` · showing ${roleUsersFiltered.length} of ${allUsers.length}`
-                : ""}
+              {rolePick.length} selected · showing {roleUsersFiltered.length} in this department
             </p>
           )}
           <div className="space-y-2 py-2 max-h-[50vh] overflow-y-auto">
-            {allUsers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No users found. Create users first.</p>
-            ) : roleUsersFiltered.length === 0 ? (
+            {roleUsersFiltered.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No users match &quot;{roleSearchApplied}&quot;.
+                {roleSearchApplied.trim()
+                  ? `No users match "${roleSearchApplied}" in this department.`
+                  : "No users belong to this department yet. Assign people to it in Manage Users first."}
               </p>
             ) : (
               roleUsersFiltered.map((u) => (
