@@ -16,12 +16,14 @@ interface Preferences {
   navLayout: NavLayout;
   menuOrder: string[];
   systemColor: SystemColor;
+  sidebarCollapsed: boolean;
 }
 
 interface PreferencesContextType extends Preferences {
   setNavLayout: (layout: NavLayout) => void;
   setMenuOrder: (order: string[]) => void;
   setSystemColor: (color: SystemColor) => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
   mounted: boolean;
 }
 
@@ -31,6 +33,7 @@ const defaults: Preferences = {
   navLayout: "sidebar",
   menuOrder: [],
   systemColor: "blue",
+  sidebarCollapsed: false,
 };
 
 function applySystemColor(color: SystemColor) {
@@ -49,6 +52,7 @@ const PreferencesContext = createContext<PreferencesContextType>({
   setNavLayout: () => {},
   setMenuOrder: () => {},
   setSystemColor: () => {},
+  setSidebarCollapsed: () => {},
   mounted: false,
 });
 
@@ -72,6 +76,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
           navLayout: parsed.navLayout || "sidebar",
           menuOrder: parsed.menuOrder || [],
           systemColor,
+          sidebarCollapsed: parsed.sidebarCollapsed === true,
         };
         setPrefs(next);
         applySystemColor(next.systemColor);
@@ -115,9 +120,16 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     [persist, prefs]
   );
 
+  const setSidebarCollapsed = useCallback(
+    (sidebarCollapsed: boolean) => {
+      persist({ ...prefs, sidebarCollapsed });
+    },
+    [persist, prefs]
+  );
+
   return (
     <PreferencesContext.Provider
-      value={{ ...prefs, setNavLayout, setMenuOrder, setSystemColor, mounted }}
+      value={{ ...prefs, setNavLayout, setMenuOrder, setSystemColor, setSidebarCollapsed, mounted }}
     >
       {children}
     </PreferencesContext.Provider>

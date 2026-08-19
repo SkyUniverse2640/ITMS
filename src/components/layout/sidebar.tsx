@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePreferences } from "@/components/providers/preferences-provider";
 import { useBrand } from "@/components/providers/brand-provider";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   ALL_NAV,
@@ -166,6 +166,36 @@ export function Sidebar({
   const { appName, logo } = useBrand();
   const [navAccess, setNavAccess] = useState<NavAccessMap>(DEFAULT_NAV_ACCESS);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [hoverExpanded, setHoverExpanded] = useState(false);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Smart group reset: auto-expand active group, collapse others on navigation
+  useEffect(() => {
+    setOpenGroups({});
+  }, [pathname]);
+
+  // Reset hover state when user explicitly toggles collapsed
+  useEffect(() => {
+    setHoverExpanded(false);
+  }, [collapsed]);
+
+  // Cleanup hover timer
+  useEffect(() => () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+  }, []);
+
+  const onSidebarEnter = useCallback(() => {
+    if (!collapsed || mobileDrawer) return;
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setHoverExpanded(true), 150);
+  }, [collapsed, mobileDrawer]);
+
+  const onSidebarLeave = useCallback(() => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setHoverExpanded(false), 250);
+  }, []);
+
+  const narrow = collapsed && !hoverExpanded;
 
   useEffect(() => {
     fetch("/api/settings")
@@ -203,7 +233,7 @@ export function Sidebar({
     const open = openGroups[item.id] ?? childActive;
 
     // Collapsed + children → hover flyout dropdown (desktop only)
-    if (hasChildren && collapsed && !mobileDrawer) {
+    if (hasChildren && narrow && !mobileDrawer) {
       return (
         <CollapsedFlyout
           key={item.id}
@@ -215,7 +245,7 @@ export function Sidebar({
     }
 
     // Expanded + children → accordion
-    if (hasChildren && (!collapsed || mobileDrawer)) {
+    if (hasChildren && (!narrow || mobileDrawer)) {
       return (
         <div key={item.id}>
           <button
@@ -279,13 +309,13 @@ export function Sidebar({
           "text-slate-800 dark:text-slate-100",
           "min-h-[44px] touch-manipulation",
           isActive(item.href) && "nav-item-sidebar-active",
-          collapsed && !mobileDrawer && "justify-center px-2"
+          narrow && !mobileDrawer && "justify-center px-2"
         )}
       >
         <span className="nav-item-icon inline-flex">
           <NavIcon name={item.icon} />
         </span>
-        {(!collapsed || mobileDrawer) && <span>{item.label}</span>}
+        {(!narrow || mobileDrawer) && <span>{item.label}</span>}
       </Link>
     );
   }
@@ -293,13 +323,16 @@ export function Sidebar({
   return (
     <aside
       data-app-sidebar
+      onMouseEnter={onSidebarEnter}
+      onMouseLeave={onSidebarLeave}
       className={cn(
         "h-full border-0 bg-sidebar text-sidebar-foreground flex flex-col shadow-none",
         mobileDrawer
           ? "relative w-full h-full max-h-dvh"
           : cn(
               "fixed left-0 top-0 z-40 h-screen transition-all duration-300",
-              collapsed ? "w-16" : "w-64"
+              narrow ? "w-16" : "w-64",
+              hoverExpanded && "shadow-xl"
             ),
         className
       )}
@@ -310,7 +343,7 @@ export function Sidebar({
         onClick={() => onNavigate?.()}
         className={cn(
           "nav-item nav-item-sidebar flex items-center border-0 px-3 gap-3 rounded-none shrink-0",
-          collapsed && !mobileDrawer ? "h-[72px] justify-center px-2" : "h-[72px] px-4"
+          narrow && !mobileDrawer ? "h-[72px] justify-center px-2" : "h-[72px] px-4"
         )}
       >
         <div className="relative h-[56px] w-[56px] sm:h-[70px] sm:w-[70px] shrink-0 overflow-hidden rounded-xl bg-transparent">
@@ -322,7 +355,7 @@ export function Sidebar({
             decoding="async"
           />
         </div>
-        {(!collapsed || mobileDrawer) && (
+        {(!narrow || mobileDrawer) && (
           <span className="font-bold text-lg sm:text-xl tracking-tight truncate text-sidebar-foreground">
             {appName}
           </span>
@@ -332,7 +365,7 @@ export function Sidebar({
       <ScrollArea className="flex-1 py-3 sm:py-4 min-h-0">
         <nav className="space-y-6 px-2 pb-4">
           <div>
-            {(!collapsed || mobileDrawer) && (
+            {(!narrow || mobileDrawer) && (
               <p className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 General
               </p>
@@ -342,7 +375,7 @@ export function Sidebar({
 
           {superadmin.length > 0 && (
             <div>
-              {(!collapsed || mobileDrawer) && (
+              {(!narrow || mobileDrawer) && (
                 <p className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   SuperAdmin
                 </p>

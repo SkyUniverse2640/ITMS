@@ -9,9 +9,8 @@ import { cn } from "@/lib/utils";
 import { usePreferences } from "@/components/providers/preferences-provider";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { navLayout, mounted } = usePreferences();
+  const { navLayout, sidebarCollapsed, setSidebarCollapsed, mounted } = usePreferences();
   const pathname = usePathname();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const layout = mounted ? navLayout : "sidebar";
