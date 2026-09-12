@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronRight, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -31,6 +31,8 @@ function CollapsedFlyout({
   childActive: boolean;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const flyoutRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -79,10 +81,32 @@ function CollapsedFlyout({
     open && typeof document !== "undefined"
       ? createPortal(
           <div
+            ref={flyoutRef}
             className="fixed z-[200] min-w-[200px] max-w-[260px] rounded-lg border border-border/80 bg-popover p-1.5 text-popover-foreground shadow-lg"
             style={{ top: pos.top, left: pos.left }}
             onMouseEnter={openMenu}
             onMouseLeave={scheduleClose}
+            onBlur={(event) => {
+              const next = event.relatedTarget as Node | null;
+              if (!flyoutRef.current?.contains(next) && !wrapRef.current?.contains(next)) scheduleClose();
+            }}
+            onKeyDown={(event) => {
+              const items = Array.from(
+                flyoutRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []
+              );
+              const index = items.indexOf(document.activeElement as HTMLElement);
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setOpen(false);
+                triggerRef.current?.focus();
+              } else if (event.key === "ArrowDown" && items.length) {
+                event.preventDefault();
+                items[(index + 1) % items.length]?.focus();
+              } else if (event.key === "ArrowUp" && items.length) {
+                event.preventDefault();
+                items[(index - 1 + items.length) % items.length]?.focus();
+              }
+            }}
             role="menu"
           >
             <p className="px-2.5 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
@@ -123,13 +147,29 @@ function CollapsedFlyout({
       className="relative"
       onMouseEnter={openMenu}
       onMouseLeave={scheduleClose}
+      onFocus={openMenu}
+      onBlur={(event) => {
+        const next = event.relatedTarget as Node | null;
+        if (!event.currentTarget.contains(next) && !flyoutRef.current?.contains(next)) scheduleClose();
+      }}
     >
       <button
+        ref={triggerRef}
         type="button"
         title={item.label}
         aria-label={item.label}
         aria-expanded={open}
         aria-haspopup="menu"
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            openMenu();
+            requestAnimationFrame(() =>
+              flyoutRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+            );
+          }
+        }}
         className={cn(
           "nav-item nav-item-sidebar flex w-full items-center justify-center rounded-lg px-2 py-2.5 text-sm font-semibold",
           "text-slate-800 dark:text-slate-100",
@@ -366,12 +406,13 @@ export function Sidebar({
         }
         aria-label={mobileDrawer ? "Close menu" : collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 transition-transform",
-            mobileDrawer ? "rotate-90" : collapsed ? "rotate-[-90deg]" : "rotate-90"
-          )}
-        />
+        {mobileDrawer ? (
+          <X className="h-4 w-4" />
+        ) : collapsed ? (
+          <PanelLeftOpen className="h-4 w-4" />
+        ) : (
+          <PanelLeftClose className="h-4 w-4" />
+        )}
       </button>
     </aside>
   );

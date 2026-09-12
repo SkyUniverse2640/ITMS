@@ -9,10 +9,10 @@
     "lint": "eslint",
     "test": "node --test \"src/**/*.test.ts\"",
     "postinstall": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
-    "db:seed": "prisma db seed",
-    "db:reset": "prisma migrate reset"
+    "db:migrate": "prisma db push",
+    "db:deploy": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "prisma db push --force-reset && npm run db:seed"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

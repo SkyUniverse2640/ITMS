@@ -8,19 +8,53 @@ import { HorizontalNav } from "./horizontal-nav";
 import { cn } from "@/lib/utils";
 import { usePreferences } from "@/components/providers/preferences-provider";
 
+const SIDEBAR_COLLAPSED_KEY = "itms-sidebar-collapsed";
+const CONSTRAINED_DESKTOP_QUERY = "(min-width: 768px) and (max-width: 1279px)";
+
+type SidebarPreference = "collapsed" | "expanded" | null;
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { navLayout, mounted } = usePreferences();
   const pathname = usePathname();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarPreference, setSidebarPreference] = useState<SidebarPreference>(null);
+  const [autoSidebarCollapsed, setAutoSidebarCollapsed] = useState(false);
+  const [mobileDrawer, setMobileDrawer] = useState({ pathname, open: false });
 
   const layout = mounted ? navLayout : "sidebar";
+  if (mobileDrawer.pathname !== pathname) {
+    setMobileDrawer({ pathname, open: false });
+  }
+  const mobileOpen = mobileDrawer.pathname === pathname && mobileDrawer.open;
+  const sidebarCollapsed =
+    sidebarPreference === "collapsed" ||
+    (sidebarPreference === null && autoSidebarCollapsed);
 
-  // Close mobile drawer on navigation (critical for phone UX)
-  // Do not remount shell or toggle layout here — that causes blink between features.
   useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+    const mediaQuery = window.matchMedia(CONSTRAINED_DESKTOP_QUERY);
+    const syncSidebar = () => {
+      const savedPreference = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      setSidebarPreference(
+        savedPreference === "true"
+          ? "collapsed"
+          : savedPreference === "false"
+            ? "expanded"
+            : null
+      );
+      setAutoSidebarCollapsed(mediaQuery.matches);
+    };
+    const initialSync = window.setTimeout(syncSidebar, 0);
+    mediaQuery.addEventListener("change", syncSidebar);
+    return () => {
+      window.clearTimeout(initialSync);
+      mediaQuery.removeEventListener("change", syncSidebar);
+    };
+  }, []);
+
+  function toggleSidebar() {
+    const preference = sidebarCollapsed ? "expanded" : "collapsed";
+    setSidebarPreference(preference);
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(preference === "collapsed"));
+  }
 
   // Lock body scroll while mobile drawer is open
   useEffect(() => {
@@ -57,7 +91,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-dvh min-h-screen bg-background flex flex-col">
         <Topbar
-          onMenuClick={() => setMobileOpen((o) => !o)}
+          onMenuClick={() => setMobileDrawer((drawer) => ({ pathname, open: !drawer.open }))}
           showMenu
           showBrand
         >
@@ -71,14 +105,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <>
             <div
               className="fixed inset-0 z-40 bg-black/50 md:hidden"
-              onClick={() => setMobileOpen(false)}
+              onClick={() => setMobileDrawer({ pathname, open: false })}
               aria-hidden
             />
             <div className="fixed inset-y-0 left-0 z-50 w-[min(18rem,88vw)] md:hidden shadow-xl">
               <Sidebar
                 collapsed={false}
-                onToggle={() => setMobileOpen(false)}
-                onNavigate={() => setMobileOpen(false)}
+                onToggle={() => setMobileDrawer({ pathname, open: false })}
+                onNavigate={() => setMobileDrawer({ pathname, open: false })}
                 mobileDrawer
               />
             </div>
@@ -98,7 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="hidden md:block">
         <Sidebar
           collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onToggle={toggleSidebar}
         />
       </div>
 
@@ -106,7 +140,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <>
           <div
             className="fixed inset-0 z-40 bg-black/50 md:hidden"
-            onClick={() => setMobileOpen(false)}
+            onClick={() => setMobileDrawer({ pathname, open: false })}
             aria-hidden
           />
           <div
@@ -117,8 +151,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Sidebar
               collapsed={false}
-              onToggle={() => setMobileOpen(false)}
-              onNavigate={() => setMobileOpen(false)}
+              onToggle={() => setMobileDrawer({ pathname, open: false })}
+              onNavigate={() => setMobileDrawer({ pathname, open: false })}
               mobileDrawer
             />
           </div>
@@ -131,7 +165,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           sidebarCollapsed ? "md:ml-16" : "md:ml-64"
         )}
       >
-        <Topbar onMenuClick={() => setMobileOpen((o) => !o)} />
+        <Topbar
+          onMenuClick={() =>
+            setMobileDrawer((drawer) => ({ pathname, open: !drawer.open }))
+          }
+        />
         <main className="p-3 sm:p-4 md:p-6 min-w-0 main-scroll-x w-full max-w-full">
           {children}
         </main>

@@ -19,7 +19,7 @@ services:
     networks:
       - nexusdesk
 
-  # One-shot: brings the database schema up to date before the app starts.
+  # One-shot: pushes the database schema before the app starts.
   # Built from the `builder` stage because the Prisma CLI needs the full
   # node_modules, which the app's standalone bundle deliberately omits.
   # Seed a fresh database with:
@@ -30,7 +30,7 @@ services:
       dockerfile: Dockerfile
       target: builder
     container_name: nexusdesk-migrate
-    command: npx prisma migrate deploy
+    command: npx prisma db push
     restart: "no"
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-nexusdesk}:${POSTGRES_PASSWORD:-nexusdesk}@postgres:5432/${POSTGRES_DB:-nexusdesk}

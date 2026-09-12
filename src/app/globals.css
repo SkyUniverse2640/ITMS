@@ -148,10 +148,10 @@ html[data-system-color="cyan"] {
   --accent-foreground: #0f172a;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  /* Soft borders — barely visible (navbar/sections) */
-  --border: #f1f5f9;
-  /* Form field outline — stronger, mixes with system color at runtime via .form-control-chrome */
-  --input: color-mix(in srgb, var(--sys-600, #2563eb) 35%, #94a3b8 65%);
+  /* Soft borders — subtle hairline, no glow (navbar/sections) */
+  --border: #e6eaf1;
+  /* Form field outline — neutral hairline; system color only appears on focus */
+  --input: #cbd5e1;
   --ring: var(--sys-600, #2563eb);
   --sidebar: #f8fafc;
   --sidebar-foreground: #0f172a;
@@ -179,8 +179,8 @@ html[data-system-color="cyan"] {
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   /* Soft borders in dark mode too */
-  --border: #1e293b;
-  --input: color-mix(in srgb, var(--sys-400, #60a5fa) 45%, #64748b 55%);
+  --border: #26334a;
+  --input: #3f4d63;
   --ring: var(--sys-500, #3b82f6);
   --sidebar: #1e293b;
   --sidebar-foreground: #f8fafc;
@@ -277,35 +277,30 @@ summary,
 }
 
 /* =========================================================
-   FORM CONTROLS — bold outline + system-color (accent) shadow
+   FORM CONTROLS — flat hairline border, single focus ring
+   No colored glow: system color shows up only on focus.
    Used by Input, Select, Textarea, search bars, rich editor
    ========================================================= */
 :root {
-  --form-border: color-mix(in srgb, var(--sys-600, #2563eb) 42%, #64748b 58%);
-  --form-border-hover: var(--sys-500, #3b82f6);
+  --form-border: #cbd5e1;
+  --form-border-hover: #94a3b8;
   --form-border-focus: var(--sys-600, #2563eb);
-  --form-shadow: 0 1px 3px color-mix(in srgb, var(--sys-600, #2563eb) 22%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--sys-400, #60a5fa) 28%, transparent);
-  --form-shadow-hover: 0 2px 6px color-mix(in srgb, var(--sys-600, #2563eb) 28%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--sys-500, #3b82f6) 40%, transparent);
-  --form-shadow-focus: 0 0 0 3px color-mix(in srgb, var(--sys-500, #3b82f6) 32%, transparent),
-    0 2px 8px color-mix(in srgb, var(--sys-600, #2563eb) 24%, transparent);
+  --form-shadow: none;
+  --form-shadow-hover: none;
+  --form-shadow-focus: 0 0 0 3px color-mix(in srgb, var(--sys-500, #3b82f6) 18%, transparent);
 }
 
 .dark {
-  --form-border: color-mix(in srgb, var(--sys-400, #60a5fa) 55%, #94a3b8 45%);
-  --form-border-hover: var(--sys-400, #60a5fa);
+  --form-border: #3f4d63;
+  --form-border-hover: #64748b;
   --form-border-focus: var(--sys-400, #60a5fa);
-  --form-shadow: 0 1px 3px color-mix(in srgb, var(--sys-500, #3b82f6) 35%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--sys-400, #60a5fa) 35%, transparent);
-  --form-shadow-hover: 0 2px 6px color-mix(in srgb, var(--sys-500, #3b82f6) 40%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--sys-400, #60a5fa) 45%, transparent);
-  --form-shadow-focus: 0 0 0 3px color-mix(in srgb, var(--sys-500, #3b82f6) 40%, transparent),
-    0 2px 8px color-mix(in srgb, var(--sys-400, #60a5fa) 30%, transparent);
+  --form-shadow: none;
+  --form-shadow-hover: none;
+  --form-shadow-focus: 0 0 0 3px color-mix(in srgb, var(--sys-400, #60a5fa) 22%, transparent);
 }
 
 .form-control-chrome {
-  border-width: 1.5px !important;
+  border-width: 1px !important;
   border-style: solid !important;
   border-color: var(--form-border) !important;
   box-shadow: var(--form-shadow) !important;
@@ -846,14 +841,6 @@ html.dark [role="menuitem"].text-red-400[data-highlighted] {
   }
 }
 
-@keyframes wiggle {
-  0%, 100% { transform: rotate(0deg); }
-  20% { transform: rotate(14deg); }
-  40% { transform: rotate(-10deg); }
-  60% { transform: rotate(6deg); }
-  80% { transform: rotate(-4deg); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .page-enter {
     animation: none;
@@ -911,72 +898,50 @@ html.dark .nav-item:hover:not(.nav-item-active):not(.nav-item-sidebar-active):no
 }
 
 /* =========================================================
-   SIDEBAR — animated underline (no solid fill)
+   SIDEBAR — soft tinted pill + left rail indicator (no glow)
    ========================================================= */
 .nav-item-sidebar {
   position: relative;
   background-color: transparent !important;
   overflow: visible;
-  transition:
-    color 0.2s ease,
-    background-color 0.2s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 /* Soft hover wash (not a solid active block) */
 html:not(.dark) .nav-item-sidebar:hover:not(.nav-item-sidebar-active) {
-  background-color: color-mix(in srgb, var(--sys-500, #3b82f6) 8%, transparent) !important;
+  background-color: color-mix(in srgb, var(--sys-500, #3b82f6) 7%, transparent) !important;
   color: var(--sys-700, #1d4ed8) !important;
 }
 html.dark .nav-item-sidebar:hover:not(.nav-item-sidebar-active) {
-  background-color: color-mix(in srgb, var(--sys-400, #60a5fa) 12%, transparent) !important;
-  color: var(--sys-300, #93c5fd) !important;
+  background-color: color-mix(in srgb, var(--sys-400, #60a5fa) 10%, transparent) !important;
+  color: var(--sys-200, #bfdbfe) !important;
 }
 
-/* Animated line under the item */
-.nav-item-sidebar::after {
+/* Left rail marker — only on the active item */
+.nav-item-sidebar::before {
   content: "";
   position: absolute;
-  left: 0.75rem;
-  right: 0.75rem;
-  bottom: 0.3rem;
-  height: 2px;
+  left: 0;
+  top: 50%;
+  height: 1.15rem;
+  width: 3px;
   border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--sys-500, #3b82f6) 20%,
-    var(--sys-400, #60a5fa) 50%,
-    var(--sys-500, #3b82f6) 80%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  transform: scaleX(0);
-  transform-origin: center;
+  background-color: currentColor;
+  transform: translateY(-50%) scaleY(0.2);
   opacity: 0;
-  transition:
-    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.2s ease;
+  transition: transform 0.18s ease, opacity 0.18s ease;
   pointer-events: none;
 }
 
-html:not(.dark) .nav-item-sidebar:hover::after {
-  transform: scaleX(0.55);
-  opacity: 0.55;
-}
-
-html.dark .nav-item-sidebar:hover::after {
-  transform: scaleX(0.55);
-  opacity: 0.65;
-}
-
-/* Active: full underline + subtle shimmer */
+/* Active: tinted pill + rail, no animation loop */
 .nav-item-sidebar.nav-item-sidebar-active {
-  background-color: transparent !important;
   font-weight: 700;
-  color: var(--sys-600, #2563eb) !important;
+  color: var(--sys-700, #1d4ed8) !important;
+  background-color: color-mix(in srgb, var(--sys-500, #3b82f6) 12%, transparent) !important;
 }
 html.dark .nav-item-sidebar.nav-item-sidebar-active {
-  color: var(--sys-300, #93c5fd) !important;
+  color: var(--sys-200, #bfdbfe) !important;
+  background-color: color-mix(in srgb, var(--sys-400, #60a5fa) 16%, transparent) !important;
 }
 
 .nav-item-sidebar.nav-item-sidebar-active svg {
@@ -988,103 +953,74 @@ html.dark .nav-item-sidebar.nav-item-sidebar-active {
   color: inherit !important;
 }
 
-.nav-item-sidebar.nav-item-sidebar-active::after {
-  transform: scaleX(1);
+.nav-item-sidebar.nav-item-sidebar-active::before {
+  transform: translateY(-50%) scaleY(1);
   opacity: 1;
-  animation: nav-underline-shimmer 2.4s ease-in-out infinite;
 }
 
-/* Collapsed sidebar: shorter line under icon */
-.nav-item-sidebar.justify-center::after {
-  left: 0.5rem;
-  right: 0.5rem;
-  bottom: 0.25rem;
-}
-
-@keyframes nav-underline-shimmer {
-  0% {
-    background-position: 100% 0;
-  }
-  50% {
-    background-position: 0% 0;
-  }
-  100% {
-    background-position: 100% 0;
-  }
+/* Collapsed sidebar: rail sits flush with the rail edge */
+.nav-item-sidebar.justify-center::before {
+  left: -0.25rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nav-item-sidebar.nav-item-sidebar-active::after {
-    animation: none;
-  }
-  .nav-item-sidebar::after {
+  .nav-item-sidebar,
+  .nav-item-sidebar::before {
     transition: none;
   }
 }
 
 /* =========================================================
-   TOP / BOTTOM BAR — animated underline (matches sidebar)
+   TOP / BOTTOM BAR — short solid marker + tinted pill (no glow)
    ========================================================= */
 .nav-item-hbar {
   position: relative;
   background-color: transparent !important;
   overflow: visible;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 /* Soft hover wash (no solid pill) */
 html:not(.dark) .nav-item-hbar:hover:not(.nav-item-hbar-active) {
-  background-color: color-mix(in srgb, var(--sys-500, #3b82f6) 8%, transparent) !important;
+  background-color: color-mix(in srgb, var(--sys-500, #3b82f6) 7%, transparent) !important;
   color: var(--sys-700, #1d4ed8) !important;
 }
 html.dark .nav-item-hbar:hover:not(.nav-item-hbar-active) {
-  background-color: color-mix(in srgb, var(--sys-400, #60a5fa) 12%, transparent) !important;
-  color: var(--sys-300, #93c5fd) !important;
+  background-color: color-mix(in srgb, var(--sys-400, #60a5fa) 10%, transparent) !important;
+  color: var(--sys-200, #bfdbfe) !important;
 }
 
-/* Animated line — bottom edge for top bar, top edge for bottom bar */
+/* Short centered marker — bottom edge for top bar, top edge for bottom bar */
 .nav-item-hbar::after {
   content: "";
   position: absolute;
-  left: 0.6rem;
-  right: 0.6rem;
-  height: 2px;
+  left: 50%;
+  width: 1.5rem;
+  height: 2.5px;
   border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--sys-500, #3b82f6) 20%,
-    var(--sys-400, #60a5fa) 50%,
-    var(--sys-500, #3b82f6) 80%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  transform: scaleX(0);
-  transform-origin: center;
+  background-color: currentColor;
+  transform: translateX(-50%) scaleX(0);
   opacity: 0;
   transition:
-    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.2s ease;
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.15s ease;
   pointer-events: none;
 }
 .nav-item-hbar-top::after {
-  bottom: 0.28rem;
+  bottom: 0.2rem;
 }
 .nav-item-hbar-bottom::after {
-  top: 0.28rem;
-}
-
-.nav-item-hbar:hover::after {
-  transform: scaleX(0.55);
-  opacity: 0.55;
+  top: 0.2rem;
 }
 
 .nav-item-hbar.nav-item-hbar-active {
-  background-color: transparent !important;
   font-weight: 700;
-  color: var(--sys-600, #2563eb) !important;
+  color: var(--sys-700, #1d4ed8) !important;
+  background-color: color-mix(in srgb, var(--sys-500, #3b82f6) 10%, transparent) !important;
 }
 html.dark .nav-item-hbar.nav-item-hbar-active {
-  color: var(--sys-300, #93c5fd) !important;
+  color: var(--sys-200, #bfdbfe) !important;
+  background-color: color-mix(in srgb, var(--sys-400, #60a5fa) 14%, transparent) !important;
 }
 .nav-item-hbar.nav-item-hbar-active svg {
   color: inherit !important;
@@ -1094,20 +1030,71 @@ html.dark .nav-item-hbar.nav-item-hbar-active {
   color: inherit !important;
 }
 .nav-item-hbar.nav-item-hbar-active::after {
-  transform: scaleX(1);
+  transform: translateX(-50%) scaleX(1);
   opacity: 1;
-  animation: nav-underline-shimmer 2.4s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nav-item-hbar.nav-item-hbar-active::after {
-    animation: none;
-  }
+  .nav-item-hbar,
   .nav-item-hbar::after {
     transition: none;
   }
 }
 
+
+/* =========================================================
+   COMMAND PALETTE (feature search) — used by every navbar mode
+   ========================================================= */
+@keyframes cmd-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cmd-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.cmd-overlay {
+  animation: cmd-overlay-in 0.14s ease-out both;
+}
+
+.cmd-panel {
+  animation: cmd-panel-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Keyboard hint chip */
+.cmd-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.3rem;
+  height: 1.3rem;
+  padding: 0 0.32rem;
+  border-radius: 0.3rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  background-color: color-mix(in srgb, var(--foreground) 8%, transparent);
+  color: var(--muted-foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmd-overlay,
+  .cmd-panel {
+    animation: none;
+  }
+}
 
 .nav-card-group:hover {
   border-color: transparent;

@@ -33,8 +33,8 @@ Built with **Next.js 16 (App Router)** · **Bun** · **PostgreSQL (Prisma)** · 
 docker compose up --build
 ```
 
-This starts the app (`:3000`), PostgreSQL, a one-shot `migrate` job that applies pending
-migrations before the app boots, and a daily `pg_dump` backup sidecar.
+This starts the app (`:3000`), PostgreSQL, a one-shot `migrate` job that syncs the
+Prisma schema before the app boots, and a daily `pg_dump` backup sidecar.
 
 Seed a fresh database once the stack is up:
 
@@ -63,14 +63,12 @@ Create the role and database once:
 ```sql
 CREATE ROLE nexusdesk LOGIN PASSWORD 'nexusdesk';
 CREATE DATABASE nexusdesk OWNER nexusdesk;
--- Prisma needs a shadow database for `migrate dev`:
-ALTER ROLE nexusdesk CREATEDB;
 ```
 
 ```bash
 bun install
 cp .env.example .env.local     # adjust DATABASE_URL / JWT_SECRET
-bun run db:deploy              # apply migrations
+bun run db:deploy              # sync schema directly (no migration history)
 bun run db:seed                # master data + admin/admin
 bun run dev                    # http://localhost:3000
 ```
@@ -89,16 +87,16 @@ node .next/standalone/server.js   # standalone output; do NOT use `next start`
 ## Database
 
 The schema lives in [`prisma/schema.prisma`](prisma/schema.prisma) — 16 tables with real
-foreign keys. The generated SQL under `prisma/migrations/` is the versioned,
-auditable record of the structure; inspect it (or `psql \d+ <table>`) rather than
-reading it back out of application code.
+foreign keys — and is the source of truth. `prisma db push` synchronizes it directly to
+the database without migration history; inspect the schema (or `psql \d+ <table>`)
+rather than reading it back out of application code.
 
 | Command             | What it does                                                        |
 |---------------------|---------------------------------------------------------------------|
-| `npm run db:migrate`| Create + apply a migration after editing `schema.prisma` (dev only) |
-| `npm run db:deploy` | Apply pending migrations (production / CI)                          |
+| `npm run db:migrate`| Sync `schema.prisma` directly to the database (no migration history) |
+| `npm run db:deploy` | Sync `schema.prisma` directly to the database (production / CI)     |
 | `npm run db:seed`   | Insert master data and the initial `admin` account                  |
-| `npm run db:reset`  | Drop, re-migrate, and re-seed — destroys all data                   |
+| `npm run db:reset`  | Force-reset schema with db push, then re-seed — destroys all data   |
 | `npm test`          | Node's built-in test runner over `src/**/*.test.ts`                 |
 
 `npx prisma studio` opens a browser table viewer.
@@ -154,7 +152,6 @@ Other static templates live under `public/Templates/` (user, department, asset).
 ```
 prisma/
   schema.prisma         # tables, relations, foreign keys — the schema of record
-  migrations/           # versioned SQL, the auditable change history
   seed.ts               # `prisma db seed` entry point
 src/
   app/
@@ -183,7 +180,7 @@ src/
 
 - `docker compose up --build -d` for production.
 - Set a strong `JWT_SECRET` and `POSTGRES_PASSWORD` via environment (compose reads `${JWT_SECRET}` / `${POSTGRES_PASSWORD}`). `POSTGRES_PORT` overrides the host-side port if 5432 is already in use.
-- The `migrate` service runs `prisma migrate deploy` and must exit successfully before the app starts, so a schema change ships with the image. It is built from the Dockerfile's `builder` stage because the Prisma CLI needs the full `node_modules`.
+- The `migrate` service runs `prisma db push` and must exit successfully before the app starts, so `prisma/schema.prisma` is synchronized directly to the database without migration history. It is built from the Dockerfile's `builder` stage because the Prisma CLI needs the full `node_modules`.
 - PostgreSQL's published port is bound to `127.0.0.1` — reachable for local `psql` / `pg_dump`, not exposed to the LAN. The app connects over the compose network.
 - The `postgres-backup` service runs a daily `pg_dump -Fc` into `./backups`, pruning dumps older than 7 days. Restore with `pg_restore -d nexusdesk <file>`.
 - Attachment size limit (default 10 MB) and allowed types are configurable in Settings.

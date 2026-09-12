@@ -1,8 +1,7 @@
 // NexusDesk / ITMS — PostgreSQL schema
 //
 // Every table, column, and relation the application uses is declared here.
-// This file plus the SQL under prisma/migrations/ is the auditable record of
-// the database structure.
+// This file is the source of truth for the database structure.
 //
 // Conventions:
 //   - Primary keys are UUID v7 (time-ordered, so "newest first" indexes stay tight).
