@@ -165,24 +165,22 @@ export async function parseSpreadsheetFile(file: File): Promise<RowObject[]> {
     const text = await file.text();
     return parseCsv(text);
   }
-  if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
-    const XLSX = await import("xlsx");
-    const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, { type: "array" });
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-      defval: "",
-      raw: false,
-    });
-    return json.map((row) => {
-      const out: RowObject = {};
-      for (const [k, v] of Object.entries(row)) {
-        out[normalizeHeader(String(k))] = v == null ? "" : String(v).trim();
-      }
-      return out;
+  if (name.endsWith(".xlsx")) {
+    const { readSheet } = await import("read-excel-file/browser");
+    const rows = await readSheet(await file.arrayBuffer());
+    if (rows.length < 2) return [];
+
+    const headers = rows[0].map((cell) => normalizeHeader(String(cell ?? "")));
+    return rows.slice(1).map((cells) => {
+      const row: RowObject = {};
+      headers.forEach((header, index) => {
+        const value = cells[index];
+        row[header] = value == null ? "" : String(value).trim();
+      });
+      return row;
     });
   }
-  throw new Error("Unsupported file type. Use .csv, .xlsx, or .xls");
+  throw new Error("Unsupported file type. Use .csv or .xlsx");
 }
 
 /** Escape a CSV cell (RFC-style quotes) */

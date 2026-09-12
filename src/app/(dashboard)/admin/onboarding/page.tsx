@@ -769,7 +769,7 @@ export default function OnboardingPage() {
                 </span>
                 <input
                   type="file"
-                  accept=".csv,.xlsx,.xls,.txt"
+                  accept=".csv,.xlsx,.txt"
                   className="hidden"
                   onChange={importDepartments}
                   disabled={busy}
@@ -870,7 +870,7 @@ export default function OnboardingPage() {
                 </span>
                 <input
                   type="file"
-                  accept=".csv,.xlsx,.xls,.txt"
+                  accept=".csv,.xlsx,.txt"
                   className="hidden"
                   onChange={importUsers}
                   disabled={busy}
