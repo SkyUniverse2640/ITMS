@@ -3,21 +3,25 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import bcryptjs from "bcryptjs";
-import connectDB from "@/lib/db";
-import User from "@/lib/models/User";
+import prisma from "@/lib/db";
+import type { Prisma, UserStatus } from "@/generated/prisma/client";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
+import { serialize } from "@/lib/serialize";
+import { isId } from "@/lib/utils";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
-  await connectDB();
   const { id } = await params;
-  const user = await User.findById(id).select("-password").lean();
+  if (!isId(id)) {
+    return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
+  }
+  const user = await prisma.user.findUnique({ where: { id }, omit: { password: true } });
   if (!user) return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
 
-  return NextResponse.json({ success: true, data: user });
+  return NextResponse.json({ success: true, data: serialize(user) });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -26,78 +30,95 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  await connectDB();
   const { id } = await params;
+  if (!isId(id)) {
+    return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
+  }
   const body = await req.json();
-  const user = await User.findById(id);
+  const user = await prisma.user.findUnique({ where: { id } });
   if (!user) return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
 
   const before = { displayName: user.displayName, email: user.email, role: user.role, userTypes: user.userTypes, status: user.status };
 
-  const ALLOWED_USER_FIELDS = new Set([
-    "displayName", "username", "email", "employeeId", "role",
-    "userTypes", "jobTitle", "department", "mobile", "site", "status", "password",
-  ]);
-  const sanitized: Record<string, unknown> = {};
-  for (const key of Object.keys(body)) {
-    if (ALLOWED_USER_FIELDS.has(key)) sanitized[key] = body[key];
+  const data: Prisma.UserUpdateInput = {};
+  if (typeof body.displayName === "string") data.displayName = body.displayName;
+  if (typeof body.username === "string") data.username = body.username.toLowerCase();
+  if (typeof body.email === "string") data.email = body.email.toLowerCase();
+  if (typeof body.employeeId === "string") data.employeeId = body.employeeId;
+  if (body.role === "SuperAdmin" || body.role === "User") data.role = body.role;
+  if (Array.isArray(body.userTypes)) data.userTypes = body.userTypes.map(String);
+  if ("jobTitle" in body) data.jobTitle = body.jobTitle || null;
+  if ("department" in body) data.department = body.department || null;
+  if ("mobile" in body) data.mobile = body.mobile || null;
+  if ("site" in body) {
+    data.site = body.site ? { connect: { id: String(body.site) } } : { disconnect: true };
   }
 
-  if (sanitized.password) {
-    sanitized.password = await bcryptjs.hash(sanitized.password as string, 12);
-    sanitized.mustChangePassword = true;
-  } else {
-    delete sanitized.password;
+  if (typeof body.status === "string") {
+    const s = body.status.toLowerCase();
+    if (s === "inactive") data.status = "Inactive" satisfies UserStatus;
+    else if (s === "active") data.status = "Active" satisfies UserStatus;
   }
 
-  if (typeof sanitized.status === "string") {
-    const s = (sanitized.status as string).toLowerCase();
-    if (s === "inactive") sanitized.status = "Inactive";
-    else if (s === "active") sanitized.status = "Active";
+  if (body.password) {
+    data.password = await bcryptjs.hash(String(body.password), 12);
+    data.mustChangePassword = true;
   }
 
-  Object.assign(user, sanitized);
-  await user.save();
+  const updated = await prisma.user.update({
+    where: { id },
+    data,
+    omit: { password: true },
+  });
 
   await createAuditLog({
     actorId: session._id,
     actorName: session.displayName,
     action: "Update",
     module: "User",
-    targetId: user._id.toString(),
-    targetLabel: user.displayName,
+    targetId: updated.id,
+    targetLabel: updated.displayName,
     before,
-    after: { displayName: user.displayName, email: user.email, role: user.role, userTypes: user.userTypes, status: user.status },
+    after: { displayName: updated.displayName, email: updated.email, role: updated.role, userTypes: updated.userTypes, status: updated.status },
   });
 
-  const { password: _, ...userData } = user.toObject();
-  return NextResponse.json({ success: true, data: userData });
+  return NextResponse.json({ success: true, data: serialize(updated) });
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session || session.role !== "SuperAdmin") {
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  await connectDB();
   const { id } = await params;
+  if (!isId(id)) {
+    return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
+  }
   if (id === session._id) {
     return NextResponse.json({ success: false, error: "Cannot delete yourself" }, { status: 400 });
   }
 
-  const user = await User.findByIdAndUpdate(id, { status: "Inactive" }, { new: true }).select("-password");
-  if (!user) return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
+  const existing = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
+
+  // Deactivate rather than delete — tickets, comments, and audit rows reference
+  // this user and must keep resolving.
+  const user = await prisma.user.update({
+    where: { id },
+    data: { status: "Inactive" },
+    omit: { password: true },
+  });
 
   await createAuditLog({
     actorId: session._id,
     actorName: session.displayName,
     action: "Update",
     module: "User",
-    targetId: user._id.toString(),
+    targetId: user.id,
     targetLabel: user.displayName,
     after: { status: "Inactive" },
   });
 
-  return NextResponse.json({ success: true, data: user });
+  return NextResponse.json({ success: true, data: serialize(user) });
 }

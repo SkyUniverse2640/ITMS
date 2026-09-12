@@ -2,18 +2,34 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import connectDB from "@/lib/db";
-import Asset from "@/lib/models/Asset";
-import User from "@/lib/models/User";
+import prisma from "@/lib/db";
+import type { Prisma, AssetCategory } from "@/generated/prisma/client";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
-import { escapeRegex } from "@/lib/utils";
+import { serialize } from "@/lib/serialize";
+import { isId } from "@/lib/utils";
+
+const ASSET_CATEGORIES = ["Hardware", "Software", "Consumable"] as const;
+
+const SEARCHABLE = new Set([
+  "name",
+  "assetTag",
+  "assetType",
+  "assetCategory",
+  "currentState",
+  "serialNumber",
+  "department",
+  "vendor",
+]);
+
+function asCategory(v: unknown): AssetCategory | undefined {
+  return ASSET_CATEGORIES.includes(v as AssetCategory) ? (v as AssetCategory) : undefined;
+}
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
-  await connectDB();
   const url = new URL(req.url);
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
   const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "25")));
@@ -24,52 +40,54 @@ export async function GET(req: NextRequest) {
   const assignedTo = url.searchParams.get("assignedTo") || "";
   const view = url.searchParams.get("view") || "";
 
-  const filter: Record<string, unknown> = {};
-  const rx = (q: string) => ({ $regex: escapeRegex(q), $options: "i" });
-
-  const SEARCHABLE: Record<string, string> = {
-    name: "name",
-    assetTag: "assetTag",
-    assetType: "assetType",
-    assetCategory: "assetCategory",
-    currentState: "currentState",
-    serialNumber: "serialNumber",
-    department: "department",
-    vendor: "vendor",
-  };
+  const where: Prisma.AssetWhereInput = {};
+  const like = { contains: search, mode: "insensitive" } as const;
 
   if (view === "my") {
-    filter.assignedTo = session._id;
+    where.assignedToId = session._id;
   }
   if (search) {
-    const col = SEARCHABLE[searchColumn];
-    if (col) {
-      filter[col] = rx(search);
+    // assetCategory is an enum — resolve the substring against its value list.
+    const q = search.toLowerCase();
+    const cats = ASSET_CATEGORIES.filter((c) => c.toLowerCase().includes(q));
+
+    if (SEARCHABLE.has(searchColumn)) {
+      if (searchColumn === "assetCategory") where.assetCategory = { in: [...cats] };
+      else where[searchColumn as "name"] = like;
     } else {
-      filter.$or = [
-        { name: rx(search) },
-        { assetTag: rx(search) },
-        { serialNumber: rx(search) },
-        { assetType: rx(search) },
-        { assetCategory: rx(search) },
-        { currentState: rx(search) },
-        { department: rx(search) },
-        { vendor: rx(search) },
+      where.OR = [
+        { name: like },
+        { assetTag: like },
+        { serialNumber: like },
+        { assetType: like },
+        { currentState: like },
+        { department: like },
+        { vendor: like },
+        ...(cats.length ? [{ assetCategory: { in: [...cats] } }] : []),
       ];
     }
   }
-  if (category) filter.assetCategory = category;
-  if (state) filter.currentState = state;
-  if (assignedTo) filter.assignedTo = assignedTo;
+  if (category) where.assetCategory = asCategory(category) ?? { in: [] };
+  if (state) where.currentState = state;
+  if (assignedTo) where.assignedToId = isId(assignedTo) ? assignedTo : { in: [] };
 
   const [assets, total] = await Promise.all([
-    Asset.find(filter).populate("assignedTo", "displayName email department").populate("site", "name").sort("-createdAt").skip((page - 1) * limit).limit(limit).lean(),
-    Asset.countDocuments(filter),
+    prisma.asset.findMany({
+      where,
+      include: {
+        assignedTo: { select: { id: true, displayName: true, email: true, department: true } },
+        site: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.asset.count({ where }),
   ]);
 
   return NextResponse.json({
     success: true,
-    data: assets,
+    data: serialize(assets),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 }
@@ -80,46 +98,61 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  await connectDB();
   const body = await req.json();
 
-  const existing = await Asset.findOne({ assetTag: body.assetTag });
-  if (existing) return NextResponse.json({ success: false, error: "Asset tag already exists" }, { status: 409 });
-
-  if (body.assignedTo) {
-    const assignedUser = await User.findById(body.assignedTo).lean();
-    if (assignedUser) body.department = (assignedUser as Record<string, unknown>).department;
+  const assetCategory = asCategory(body.assetCategory);
+  if (!assetCategory) {
+    return NextResponse.json(
+      { success: false, error: "assetCategory must be Hardware, Software, or Consumable" },
+      { status: 400 }
+    );
   }
 
-  const asset = await Asset.create({
-    name: body.name,
-    assetType: body.assetType,
-    assetCategory: body.assetCategory,
-    assetTag: body.assetTag,
-    serialNumber: body.serialNumber,
-    vendor: body.vendor,
-    purchaseCost: body.purchaseCost,
-    purchaseDate: body.purchaseDate,
-    warrantyExpiredDate: body.warrantyExpiredDate,
-    currentState: body.currentState,
-    assignedTo: body.assignedTo,
-    department: body.department,
-    site: body.site,
-    licenseKey: body.licenseKey,
-    totalSeats: body.totalSeats,
-    seatsUsed: body.seatsUsed,
-    stockQuantity: body.stockQuantity,
-    reorderThreshold: body.reorderThreshold,
-    unit: body.unit,
-    comment: body.comment,
+  const existing = await prisma.asset.findUnique({ where: { assetTag: body.assetTag } });
+  if (existing) return NextResponse.json({ success: false, error: "Asset tag already exists" }, { status: 409 });
+
+  const assignedToId = isId(body.assignedTo) ? String(body.assignedTo) : undefined;
+  let department: string | undefined =
+    typeof body.department === "string" ? body.department : undefined;
+  if (assignedToId) {
+    const assignedUser = await prisma.user.findUnique({
+      where: { id: assignedToId },
+      select: { department: true },
+    });
+    if (assignedUser) department = assignedUser.department ?? undefined;
+  }
+
+  const asset = await prisma.asset.create({
+    data: {
+      name: body.name,
+      assetType: body.assetType,
+      assetCategory,
+      assetTag: body.assetTag,
+      serialNumber: body.serialNumber || undefined,
+      vendor: body.vendor || undefined,
+      purchaseCost: body.purchaseCost != null ? Number(body.purchaseCost) : undefined,
+      purchaseDate: body.purchaseDate ? new Date(body.purchaseDate) : undefined,
+      warrantyExpiredDate: body.warrantyExpiredDate ? new Date(body.warrantyExpiredDate) : undefined,
+      currentState: body.currentState || undefined,
+      assignedToId,
+      department,
+      siteId: isId(body.site) ? String(body.site) : undefined,
+      licenseKey: body.licenseKey || undefined,
+      totalSeats: body.totalSeats != null ? Number(body.totalSeats) : undefined,
+      seatsUsed: body.seatsUsed != null ? Number(body.seatsUsed) : undefined,
+      stockQuantity: body.stockQuantity != null ? Number(body.stockQuantity) : undefined,
+      reorderThreshold: body.reorderThreshold != null ? Number(body.reorderThreshold) : undefined,
+      unit: body.unit || undefined,
+      comment: body.comment || undefined,
+    },
   });
 
   await createAuditLog({
     actorId: session._id, actorName: session.displayName,
     action: "Create", module: "Asset",
-    targetId: asset._id.toString(), targetLabel: asset.assetTag,
+    targetId: asset.id, targetLabel: asset.assetTag,
     after: { name: asset.name, assetTag: asset.assetTag, assetCategory: asset.assetCategory },
   });
 
-  return NextResponse.json({ success: true, data: asset }, { status: 201 });
+  return NextResponse.json({ success: true, data: serialize(asset) }, { status: 201 });
 }

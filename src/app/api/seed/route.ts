@@ -4,8 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { seedDatabase } from "@/lib/seed";
 import { getSession } from "@/lib/auth";
-import connectDB from "@/lib/db";
-import User from "@/lib/models/User";
+import prisma from "@/lib/db";
 
 /**
  * POST /api/seed
@@ -23,8 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (force) {
-      await connectDB();
-      const userCount = await User.countDocuments();
+      const userCount = await prisma.user.count();
       if (userCount > 0) {
         const session = await getSession();
         if (!session || session.role !== "SuperAdmin") {

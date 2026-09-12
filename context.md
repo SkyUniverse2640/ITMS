@@ -2,7 +2,7 @@
 ### IT Service Management System
 
 **Versi:** 2.0 (Revisi audit dari draft awal)
-**Tech Stack:** Next.js (App Router) · Shadcn/ui · Bun (runtime & package manager) · MongoDB · Docker
+**Tech Stack:** Next.js (App Router) · Shadcn/ui · Bun (runtime & package manager) · PostgreSQL (Prisma) · Docker
 
 ---
 
@@ -10,7 +10,7 @@
 
 NexusDesk adalah aplikasi ITSM (IT Service Management) berbasis web yang menangani tiga domain utama: **Request/Ticket Management**, **Asset Management**, dan **Task & Purchase Management**, dengan dashboard yang dapat dikustomisasi penuh oleh masing-masing pengguna.
 
-Sistem dirancang single-tenant (satu instance untuk satu organisasi), dideploy via Docker, dengan MongoDB sebagai penyimpanan utama.
+Sistem dirancang single-tenant (satu instance untuk satu organisasi), dideploy via Docker, dengan PostgreSQL sebagai penyimpanan utama. Skema relasional (tabel, relasi, foreign key) didefinisikan di `prisma/schema.prisma` dengan riwayat perubahan ter-versi di `prisma/migrations/` sebagai artefak audit.
 
 ---
 
@@ -306,8 +306,9 @@ User Type **Auditor** memiliki akses read-only ke seluruh Audit Trail ini plus s
 
 ## 10. Non-Functional Requirements
 
-- Deployment: Docker Compose (App service + MongoDB; opsional MinIO/S3-compatible untuk file storage attachment — **keputusan storage strategy perlu dikonfirmasi**, lihat Section 11).
-- Backup: scheduled `mongodump` otomatis.
+- Deployment: Docker Compose (App service + PostgreSQL; opsional MinIO/S3-compatible untuk file storage attachment — **keputusan storage strategy perlu dikonfirmasi**, lihat Section 11).
+- Backup: scheduled `pg_dump` otomatis (format custom, restore via `pg_restore`).
+- Migrasi skema: `prisma migrate deploy` dijalankan saat container app start; setiap perubahan tabel punya file SQL ter-versi.
 - Browser support: 2 versi terakhir Chrome, Edge, Firefox, Safari.
 - Attachment: batas ukuran file default 10MB/file, tipe diizinkan (image, pdf, docx, xlsx) — configurable.
 - Konfigurasi environment via `.env` (bukan hardcoded).

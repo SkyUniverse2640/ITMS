@@ -2,11 +2,12 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import connectDB from "@/lib/db";
-import ImportHistory from "@/lib/models/ImportHistory";
-import { Settings } from "@/lib/models/Settings";
+import prisma from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
+import { serialize } from "@/lib/serialize";
+import { isId } from "@/lib/utils";
 
 type DeptRoles = { Director: string[]; Manager: string[]; Supervisor: string[] };
 type DeptItem = { id: string; name: string; description?: string; roles?: DeptRoles };
@@ -55,7 +56,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  await connectDB();
   const body = await req.json();
   const rows = body.departments ?? body.rows;
   const fileName = typeof body.fileName === "string" ? body.fileName : "import.csv";
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "No data provided" }, { status: 400 });
   }
 
-  const setting = await Settings.findOne({ key: "departments" });
+  const setting = await prisma.settings.findUnique({ where: { key: "departments" } });
   let list = asList(setting?.value);
 
   type RowResult = {
@@ -121,11 +121,7 @@ export async function POST(req: NextRequest) {
           name,
           description: description || list[existingIdx].description || "",
           // preserve hierarchy roles on import update
-          roles: list[existingIdx].roles || {
-            Director: [],
-            Manager: [],
-            Supervisor: [],
-          },
+          roles: list[existingIdx].roles || emptyRoles(),
         };
         results.push({ row: rowNum, status: "updated", key: name, data: snapshot });
       } else {
@@ -135,7 +131,7 @@ export async function POST(req: NextRequest) {
             id: genId(),
             name,
             description,
-            roles: { Director: [], Manager: [], Supervisor: [] },
+            roles: emptyRoles(),
           },
         ];
         results.push({ row: rowNum, status: "created", key: name, data: snapshot });
@@ -156,30 +152,32 @@ export async function POST(req: NextRequest) {
   const failed = results.filter((r) => r.status === "failed").length;
 
   if (created + updated > 0) {
-    await Settings.findOneAndUpdate(
-      { key: "departments" },
-      { value: list },
-      { upsert: true }
-    );
+    await prisma.settings.upsert({
+      where: { key: "departments" },
+      create: { key: "departments", value: list as unknown as Prisma.InputJsonValue },
+      update: { value: list as unknown as Prisma.InputJsonValue },
+    });
   }
 
   const failures = results
     .filter((r) => r.status === "failed")
     .map((r) => ({ row: r.row, data: r.data, error: r.error || "failed" }));
 
-  const history = await ImportHistory.create({
-    type: "departments",
-    fileName,
-    importedBy: session._id,
-    importedByName: session.displayName,
-    summary: { total: rows.length, created, updated, failed },
-    failures,
-    results: results.map((r) => ({
-      row: r.row,
-      status: r.status,
-      error: r.error,
-      key: r.key,
-    })),
+  const history = await prisma.importHistory.create({
+    data: {
+      type: "departments",
+      fileName,
+      importedById: session._id,
+      importedByName: session.displayName,
+      summary: { total: rows.length, created, updated, failed },
+      failures: failures as unknown as Prisma.InputJsonValue,
+      results: results.map((r) => ({
+        row: r.row,
+        status: r.status,
+        error: r.error ?? null,
+        key: r.key ?? null,
+      })),
+    },
   });
 
   await createAuditLog({
@@ -187,14 +185,14 @@ export async function POST(req: NextRequest) {
     actorName: session.displayName,
     action: "Create",
     module: "Settings",
-    targetId: history._id.toString(),
+    targetId: history.id,
     targetLabel: `Department Import: ${created} created, ${updated} updated, ${failed} failed (${fileName})`,
   });
 
   return NextResponse.json({
     success: true,
     data: {
-      historyId: history._id,
+      historyId: history.id,
       results,
       failures,
       summary: { total: rows.length, created, updated, failed },
@@ -209,32 +207,34 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  await connectDB();
   const url = new URL(req.url);
   const id = url.searchParams.get("id");
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
   const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "20")));
 
   if (id) {
-    const doc = await ImportHistory.findById(id).lean();
+    const doc = isId(id)
+      ? await prisma.importHistory.findUnique({ where: { id } })
+      : null;
     if (!doc || doc.type !== "departments") {
       return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     }
-    return NextResponse.json({ success: true, data: doc });
+    return NextResponse.json({ success: true, data: serialize(doc) });
   }
 
   const [items, total] = await Promise.all([
-    ImportHistory.find({ type: "departments" })
-      .sort("-createdAt")
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean(),
-    ImportHistory.countDocuments({ type: "departments" }),
+    prisma.importHistory.findMany({
+      where: { type: "departments" },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.importHistory.count({ where: { type: "departments" } }),
   ]);
 
   return NextResponse.json({
     success: true,
-    data: items,
+    data: serialize(items),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 }

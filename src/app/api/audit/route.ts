@@ -2,10 +2,13 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import connectDB from "@/lib/db";
-import AuditLog from "@/lib/models/AuditLog";
+import prisma from "@/lib/db";
+import type { Prisma, AuditAction, AuditModule } from "@/generated/prisma/client";
 import { getSession } from "@/lib/auth";
-import { escapeRegex } from "@/lib/utils";
+import { serialize } from "@/lib/serialize";
+
+const MODULES = ["Ticket", "Asset", "User", "Task", "Purchase", "Settings"] as const;
+const ACTIONS = ["Create", "Update", "Delete"] as const;
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -15,33 +18,42 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  await connectDB();
   const url = new URL(req.url);
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
   const limit = Math.min(100, parseInt(url.searchParams.get("limit") || "50"));
-  const module = url.searchParams.get("module") || "";
-  const action = url.searchParams.get("action") || "";
+  const moduleParam = url.searchParams.get("module") || "";
+  const actionParam = url.searchParams.get("action") || "";
   const search = url.searchParams.get("search") || "";
 
-  const filter: Record<string, unknown> = {};
-  if (module) filter.module = module;
-  if (action) filter.action = action;
+  const where: Prisma.AuditLogWhereInput = {};
+  if (moduleParam) {
+    where.module = MODULES.includes(moduleParam as AuditModule)
+      ? (moduleParam as AuditModule)
+      : { in: [] };
+  }
+  if (actionParam) {
+    where.action = ACTIONS.includes(actionParam as AuditAction)
+      ? (actionParam as AuditAction)
+      : { in: [] };
+  }
   if (search) {
-    const escaped = escapeRegex(search);
-    filter.$or = [
-      { actorName: { $regex: escaped, $options: "i" } },
-      { targetLabel: { $regex: escaped, $options: "i" } },
-    ];
+    const like = { contains: search, mode: "insensitive" } as const;
+    where.OR = [{ actorName: like }, { targetLabel: like }];
   }
 
   const [logs, total] = await Promise.all([
-    AuditLog.find(filter).sort("-createdAt").skip((page - 1) * limit).limit(limit).lean(),
-    AuditLog.countDocuments(filter),
+    prisma.auditLog.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.auditLog.count({ where }),
   ]);
 
   return NextResponse.json({
     success: true,
-    data: logs,
+    data: serialize(logs),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 }

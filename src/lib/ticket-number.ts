@@ -1,7 +1,6 @@
 import "server-only";
 
-import Ticket from "@/lib/models/Ticket";
-import { Settings } from "@/lib/models/Settings";
+import prisma from "@/lib/db";
 
 /**
  * Ticket ID format: {ticketCode}{YY}{MM}{seq}
@@ -28,8 +27,10 @@ export function normalizeTicketCode(raw: string): string {
 export async function resolveTicketCodeForRequestType(requestTypeName: string): Promise<string> {
   const name = String(requestTypeName || "").trim();
   try {
-    const setting = await Settings.findOne({ key: "requestTypes" }).lean();
-    const list = Array.isArray(setting?.value) ? (setting!.value as Record<string, unknown>[]) : [];
+    const setting = await prisma.settings.findUnique({ where: { key: "requestTypes" } });
+    const list = Array.isArray(setting?.value)
+      ? (setting.value as unknown as Record<string, unknown>[])
+      : [];
     const match = list.find(
       (x) => String(x.name || "").toLowerCase() === name.toLowerCase()
     );
@@ -53,18 +54,20 @@ export async function generateTicketNumberForType(requestTypeName: string): Prom
   const { yymm } = formatYymm();
   const prefix = `${code}${yymm}`;
 
-  // Find highest sequence for this prefix this month
-  const existing = await Ticket.find({
-    ticketNumber: { $regex: `^${escapeRegex(prefix)}\\d+$` },
-  })
-    .select("ticketNumber")
-    .sort({ ticketNumber: -1 })
-    .limit(1)
-    .lean();
+  // Sequences are handed out in order, so the newest ticket carrying this
+  // prefix holds the highest one. Ordering by createdAt rather than by the
+  // number itself keeps this correct past 999, where "1000" would sort below
+  // "999" lexically.
+  const existing = await prisma.ticket.findMany({
+    where: { ticketNumber: { startsWith: prefix } },
+    select: { ticketNumber: true },
+    orderBy: [{ createdAt: "desc" }, { ticketNumber: "desc" }],
+    take: 1,
+  });
 
   let nextSeq = 1;
   if (existing[0]?.ticketNumber) {
-    const tn = String(existing[0].ticketNumber);
+    const tn = existing[0].ticketNumber;
     const seqPart = tn.slice(prefix.length);
     const n = parseInt(seqPart, 10);
     if (!Number.isNaN(n)) nextSeq = n + 1;
@@ -75,8 +78,4 @@ export async function generateTicketNumberForType(requestTypeName: string): Prom
     nextSeq <= 999 ? nextSeq.toString().padStart(3, "0") : String(nextSeq);
 
   return `${prefix}${seqStr}`;
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

@@ -1,5 +1,4 @@
-# ---- Build stage: Node + npm (correct musl native binaries; avoids Bun's
-#      unimplemented node:v8.isBuildingSnapshot that breaks mongoose at build) ----
+# ---- Build stage ----
 FROM node:22-alpine AS builder
 WORKDIR /app
 
@@ -8,12 +7,28 @@ WORKDIR /app
 # `npm install` (not `npm ci`) so the platform-specific optional native
 # deps resolve for linux/musl regardless of where the lockfile was generated.
 COPY package.json package-lock.json ./
+# postinstall runs `prisma generate`, which needs the schema present.
+COPY prisma ./prisma
+COPY prisma.config.ts ./
 RUN npm install --no-audit --no-fund
 
 # Build the app
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# Next evaluates server modules during "collect page data", and both
+# src/lib/auth.ts and src/lib/db.ts refuse to load without their env var —
+# deliberate fail-fast behaviour at server start. Nothing signs a token or
+# opens a connection during the build, so placeholders satisfy the checks.
+# They stay in this stage; the runtime image takes the real values from the
+# environment.
+ENV JWT_SECRET=build-time-placeholder-not-used-at-runtime
+ENV DATABASE_URL=postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder
 RUN npm run build
+
+# This stage keeps the full node_modules, so it doubles as the migration and
+# seed runner — see the `migrate` service in docker-compose.yml. The Prisma CLI
+# pulls in more transitive packages than the standalone bundle carries, so it
+# runs from here rather than from the slim runtime image below.
 
 # ---- Runtime stage: minimal Node on Alpine ----
 FROM node:22-alpine AS runner

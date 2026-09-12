@@ -2,9 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import connectDB from "@/lib/db";
-import User from "@/lib/models/User";
-import { Dashboard } from "@/lib/models/Settings";
+import prisma from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import {
   SYSTEM_DASHBOARDS,
@@ -19,8 +17,10 @@ export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
-  await connectDB();
-  const dbUser = await User.findById(session._id).select("defaultDashboardKey role").lean();
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session._id },
+    select: { defaultDashboardKey: true, role: true },
+  });
   const role = session.role;
 
   const system = dashboardsVisibleTo(role).map((d) => ({
@@ -40,29 +40,24 @@ export async function GET() {
     isFavorite: boolean;
   }[] = [];
   try {
-    const docs = await Dashboard.find({
-      userId: session._id,
-      scope: "user",
-    })
-      .sort("name")
-      .lean();
+    const docs = await prisma.dashboard.findMany({
+      where: { userId: session._id, scope: "user" },
+      orderBy: { name: "asc" },
+    });
     custom = docs.map((d) => ({
-      key: d.key || String(d._id),
+      key: d.key || d.id,
       name: d.name,
       description: "Custom dashboard",
       audience: d.audience || "all",
       scope: "user" as const,
-      _id: String(d._id),
+      _id: d.id,
       isFavorite: false,
     }));
   } catch {
     custom = [];
   }
 
-  const defaultKey = resolveDefaultDashboardKey(
-    role,
-    (dbUser as { defaultDashboardKey?: string } | null)?.defaultDashboardKey
-  );
+  const defaultKey = resolveDefaultDashboardKey(role, dbUser?.defaultDashboardKey);
 
   const list = [...system, ...custom].map((d) => ({
     ...d,
@@ -83,7 +78,7 @@ export async function GET() {
 /**
  * POST — create custom dashboard (feature gated: returns 403 development message)
  */
-export async function POST(req: NextRequest) {
+export async function POST() {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
@@ -106,7 +101,6 @@ export async function PUT(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
-  await connectDB();
   const body = await req.json().catch(() => ({}));
   const key = String(body.defaultDashboardKey || body.key || "").trim();
   if (!key) {
@@ -114,11 +108,12 @@ export async function PUT(req: NextRequest) {
   }
 
   const visible = dashboardsVisibleTo(session.role).map((d) => d.key);
-  // Allow custom keys that belong to user later; for now only system visible keys
   if (!visible.includes(key)) {
-    // check custom ownership
-    const custom = await Dashboard.findOne({ key, userId: session._id }).lean();
-    if (!custom && !visible.includes(key)) {
+    // Allow a custom dashboard the user owns
+    const custom = await prisma.dashboard.findFirst({
+      where: { key, userId: session._id },
+    });
+    if (!custom) {
       return NextResponse.json(
         { success: false, error: "Dashboard not available for your account" },
         { status: 403 }
@@ -126,7 +121,10 @@ export async function PUT(req: NextRequest) {
     }
   }
 
-  await User.findByIdAndUpdate(session._id, { defaultDashboardKey: key });
+  await prisma.user.update({
+    where: { id: session._id },
+    data: { defaultDashboardKey: key },
+  });
 
   return NextResponse.json({
     success: true,

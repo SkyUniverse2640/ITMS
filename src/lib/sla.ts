@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Settings } from "@/lib/models/Settings";
+import prisma from "@/lib/db";
 
 interface PriorityRecord {
   name: string;
@@ -21,7 +21,9 @@ export async function derivePriorityFromMatrix(
   urgency: string
 ): Promise<string> {
   try {
-    const matrixSetting = await Settings.findOne({ key: "priorityMatrix" }).lean();
+    const matrixSetting = await prisma.settings.findUnique({
+      where: { key: "priorityMatrix" },
+    });
     const matrix = matrixSetting?.value as PriorityMatrix | undefined;
     if (matrix && typeof matrix === "object") {
       const row = matrix[impact];
@@ -42,9 +44,9 @@ export async function computeSlaDueDates(priorityName?: string): Promise<{
   resolveDueAt: Date | null;
 }> {
   try {
-    const priSetting = await Settings.findOne({ key: "priorities" }).lean();
+    const priSetting = await prisma.settings.findUnique({ where: { key: "priorities" } });
     const priorities = Array.isArray(priSetting?.value)
-      ? (priSetting!.value as PriorityRecord[])
+      ? (priSetting.value as unknown as PriorityRecord[])
       : [];
 
     const pri = priorities.find(
@@ -136,11 +138,15 @@ export async function getSlaEscalationRoles(priorityName?: string): Promise<{
 }> {
   try {
     const [priSetting, slaSetting] = await Promise.all([
-      Settings.findOne({ key: "priorities" }).lean(),
-      Settings.findOne({ key: "slaConfigs" }).lean(),
+      prisma.settings.findUnique({ where: { key: "priorities" } }),
+      prisma.settings.findUnique({ where: { key: "slaConfigs" } }),
     ]);
-    const priorities = Array.isArray(priSetting?.value) ? (priSetting!.value as PriorityRecord[]) : [];
-    const slas = Array.isArray(slaSetting?.value) ? (slaSetting!.value as Record<string, unknown>[]) : [];
+    const priorities = Array.isArray(priSetting?.value)
+      ? (priSetting.value as unknown as PriorityRecord[])
+      : [];
+    const slas = Array.isArray(slaSetting?.value)
+      ? (slaSetting.value as unknown as Record<string, unknown>[])
+      : [];
     const pri = priorities.find(
       (p) => String(p.name || "").toLowerCase() === String(priorityName || "Normal").toLowerCase()
     );

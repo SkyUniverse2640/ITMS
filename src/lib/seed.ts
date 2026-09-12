@@ -1,7 +1,5 @@
-import mongoose from "mongoose";
-import connectDB from "@/lib/db";
-import User from "@/lib/models/User";
-import { Settings, SLA, Site } from "@/lib/models/Settings";
+import prisma from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import bcryptjs from "bcryptjs";
 import { DEFAULT_ONBOARDING } from "@/lib/onboarding";
 
@@ -69,24 +67,39 @@ const DEFAULT_PRIORITY_MATRIX = {
   "Very High": { "Very Low": "Normal", Low: "High", Normal: "High", High: "Very High", "Very High": "Very High" },
 };
 
-/** Wipe all application collections for a true factory reset. */
+/**
+ * Every application table, child-first. Used by wipeDatabase; TRUNCATE …
+ * CASCADE would cover the ordering on its own, but the explicit list doubles
+ * as the check that a new table was considered for factory reset.
+ */
+const APP_TABLES = [
+  "audit_logs",
+  "import_history",
+  "notifications",
+  "ticket_assets",
+  "ticket_comments",
+  "ticket_logs",
+  "tasks",
+  "purchases",
+  "tickets",
+  "assets",
+  "dashboards",
+  "ticket_templates",
+  "settings",
+  "slas",
+  "users",
+  "sites",
+] as const;
+
+/** Wipe all application tables for a true factory reset. */
 export async function wipeDatabase(): Promise<void> {
-  await connectDB();
-  const db = mongoose.connection.db;
-  if (!db) throw new Error("No database connection");
-  const collections = await db.listCollections().toArray();
-  for (const col of collections) {
-    // Keep system collections
-    if (col.name.startsWith("system.")) continue;
-    await db.collection(col.name).deleteMany({});
-  }
+  const list = APP_TABLES.map((t) => `"${t}"`).join(", ");
+  await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
 }
 
 export async function seedDatabase(options?: { force?: boolean }) {
-  await connectDB();
-
   const force = Boolean(options?.force);
-  const existingAdmin = await User.findOne({ username: "admin" });
+  const existingAdmin = await prisma.user.findUnique({ where: { username: "admin" } });
 
   if (existingAdmin && !force) {
     return { seeded: false, message: "Database already seeded", forced: false };
@@ -99,18 +112,20 @@ export async function seedDatabase(options?: { force?: boolean }) {
   const hashedPassword = await bcryptjs.hash("admin", 12);
 
   // SuperAdmin only — must change password on first login; no departments/users yet
-  await User.create({
-    displayName: "System Administrator",
-    username: "admin",
-    password: hashedPassword,
-    role: "SuperAdmin",
-    userTypes: ["Requester", "Technician", "Approver"],
-    jobTitle: "IT Administrator",
-    department: "",
-    employeeId: "EMP-001",
-    email: "admin@nexusdesk.local",
-    status: "Active",
-    mustChangePassword: true,
+  await prisma.user.create({
+    data: {
+      displayName: "System Administrator",
+      username: "admin",
+      password: hashedPassword,
+      role: "SuperAdmin",
+      userTypes: ["Requester", "Technician", "Approver"],
+      jobTitle: "IT Administrator",
+      department: "",
+      employeeId: "EMP-001",
+      email: "admin@nexusdesk.local",
+      status: "Active",
+      mustChangePassword: true,
+    },
   });
 
   const settingsData = [
@@ -223,8 +238,6 @@ export async function seedDatabase(options?: { force?: boolean }) {
     { key: "onboarding", value: { ...DEFAULT_ONBOARDING } },
   ];
 
-  await Settings.insertMany(settingsData);
-
   const defaultSla = {
     id: "sla-default",
     name: "Default SLA",
@@ -238,21 +251,30 @@ export async function seedDatabase(options?: { force?: boolean }) {
     ],
   };
 
-  await Settings.findOneAndUpdate({ key: "slaConfigs" }, { value: [defaultSla] }, { upsert: true });
-
-  await SLA.create({
-    name: defaultSla.name,
-    description: defaultSla.description,
-    duration: defaultSla.duration,
-    businessHours: { days: [1, 2, 3, 4, 5], startHour: 8, endHour: 17 },
-    holidays: [],
-    escalation: defaultSla.escalation,
+  await prisma.settings.createMany({
+    data: [...settingsData, { key: "slaConfigs", value: [defaultSla] }].map((s) => ({
+      key: s.key,
+      value: s.value as Prisma.InputJsonValue,
+    })),
   });
 
-  await Site.create({
-    name: "Headquarters",
-    address: "Main Office",
-    timezone: "Asia/Jakarta",
+  await prisma.sla.create({
+    data: {
+      name: defaultSla.name,
+      description: defaultSla.description,
+      duration: defaultSla.duration,
+      businessHours: { days: [1, 2, 3, 4, 5], startHour: 8, endHour: 17 },
+      holidays: [],
+      escalation: defaultSla.escalation,
+    },
+  });
+
+  await prisma.site.create({
+    data: {
+      name: "Headquarters",
+      address: "Main Office",
+      timezone: "Asia/Jakarta",
+    },
   });
 
   return {

@@ -3,8 +3,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import bcryptjs from "bcryptjs";
-import connectDB from "@/lib/db";
-import User from "@/lib/models/User";
+import prisma from "@/lib/db";
 import { getSession, clearSession } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
@@ -14,7 +13,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
     const { currentPassword, newPassword } = await req.json();
 
     if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
@@ -31,7 +29,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const user = await User.findById(session._id);
+    const user = await prisma.user.findUnique({ where: { id: session._id } });
     if (!user) {
       return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
     }
@@ -68,9 +66,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    user.password = await bcryptjs.hash(newPassword, 12);
-    user.mustChangePassword = false;
-    await user.save();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: await bcryptjs.hash(newPassword, 12),
+        mustChangePassword: false,
+      },
+    });
 
     // Invalidate session — user must sign in again with the new password
     await clearSession();

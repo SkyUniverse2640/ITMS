@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,9 +20,10 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Calendar, Trash2, X, GripVertical } from "lucide-react";
+import { Plus, Calendar, CalendarRange, Trash2, X, GripVertical } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { PriorityBadge } from "@/components/ui/meta-badge";
+import { RichTextEditor, RichTextContent } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/toast";
 import type { ChecklistItem } from "@/types";
@@ -46,6 +46,8 @@ interface TaskData {
   description?: string;
   relatedTicket?: PopulatedRef | string;
   assignee: PopulatedRef | string;
+  dateStart?: string;
+  dateEnd?: string;
   dueDate?: string;
   status: "To Do" | "In Progress" | "Done";
   priority: string;
@@ -59,7 +61,8 @@ interface TaskFormData {
   title: string;
   description: string;
   assignee: string;
-  dueDate: string;
+  dateStart: string;
+  dateEnd: string;
   priority: string;
   relatedTicket: string;
   status: "To Do" | "In Progress" | "Done";
@@ -78,7 +81,8 @@ const EMPTY_FORM: TaskFormData = {
   title: "",
   description: "",
   assignee: "",
-  dueDate: "",
+  dateStart: "",
+  dateEnd: "",
   priority: "Normal",
   relatedTicket: "",
   status: "To Do",
@@ -168,7 +172,8 @@ export default function TasksPage() {
       title: task.title,
       description: task.description || "",
       assignee: getRefId(task.assignee),
-      dueDate: task.dueDate ? task.dueDate.split("T")[0] : "",
+      dateStart: task.dateStart ? task.dateStart.split("T")[0] : "",
+      dateEnd: task.dateEnd ? task.dateEnd.split("T")[0] : "",
       priority: task.priority,
       relatedTicket: getRefId(task.relatedTicket),
       status: task.status,
@@ -208,6 +213,11 @@ export default function TasksPage() {
       return;
     }
 
+    if (form.dateStart && form.dateEnd && new Date(form.dateStart) >= new Date(form.dateEnd)) {
+      toast({ title: "Date Start must be before Date End", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
@@ -218,7 +228,8 @@ export default function TasksPage() {
         status: form.status,
         checklist: form.checklist,
       };
-      if (form.dueDate) body.dueDate = form.dueDate;
+      if (form.dateStart) body.dateStart = form.dateStart;
+      if (form.dateEnd) body.dateEnd = form.dateEnd;
       if (form.relatedTicket.trim()) body.relatedTicket = form.relatedTicket.trim();
 
       const res = await fetch("/api/tasks", {
@@ -246,6 +257,11 @@ export default function TasksPage() {
       return;
     }
 
+    if (form.dateStart && form.dateEnd && new Date(form.dateStart) >= new Date(form.dateEnd)) {
+      toast({ title: "Date Start must be before Date End", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
@@ -256,8 +272,10 @@ export default function TasksPage() {
         status: form.status,
         checklist: form.checklist,
       };
-      if (form.dueDate) body.dueDate = form.dueDate;
-      else body.dueDate = null;
+      if (form.dateStart) body.dateStart = form.dateStart;
+      else body.dateStart = null;
+      if (form.dateEnd) body.dateEnd = form.dateEnd;
+      else body.dateEnd = null;
       if (form.relatedTicket.trim()) body.relatedTicket = form.relatedTicket.trim();
       else body.relatedTicket = null;
 
@@ -326,12 +344,11 @@ export default function TasksPage() {
 
         <div className="grid gap-2">
           <Label htmlFor="task-desc">Description</Label>
-          <Textarea
-            id="task-desc"
+          <RichTextEditor
             value={form.description}
-            onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-            placeholder="Optional description"
-            rows={3}
+            onChange={(html) => setForm((prev) => ({ ...prev, description: html }))}
+            placeholder="Task description..."
+            minHeight="120px"
           />
         </div>
 
@@ -377,15 +394,28 @@ export default function TasksPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="task-due">Due Date</Label>
+            <Label htmlFor="task-date-start">Date Start</Label>
             <Input
-              id="task-due"
+              id="task-date-start"
               type="date"
-              value={form.dueDate}
-              onChange={(e) => setForm((prev) => ({ ...prev, dueDate: e.target.value }))}
+              value={form.dateStart}
+              onChange={(e) => setForm((prev) => ({ ...prev, dateStart: e.target.value }))}
             />
           </div>
 
+          <div className="grid gap-2">
+            <Label htmlFor="task-date-end">Date End</Label>
+            <Input
+              id="task-date-end"
+              type="date"
+              value={form.dateEnd}
+              min={form.dateStart || undefined}
+              onChange={(e) => setForm((prev) => ({ ...prev, dateEnd: e.target.value }))}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
           {editOpen && (
             <div className="grid gap-2">
               <Label>Status</Label>
@@ -607,7 +637,7 @@ function TaskCard({
   checklistProgress: (checklist: ChecklistItem[]) => { done: number; total: number; percent: number };
 }) {
   const progress = checklistProgress(task.checklist);
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "Done";
+  const isOverdue = task.dateEnd && new Date(task.dateEnd) < new Date() && task.status !== "Done";
 
   return (
     <Card
@@ -620,10 +650,20 @@ function TaskCard({
           <PriorityBadge priority={task.priority} className="shrink-0" />
         </div>
 
-        {task.dueDate && (
+        {task.description && (
+          <div className="line-clamp-2 text-xs text-muted-foreground">
+            <RichTextContent html={task.description} className="text-xs [&_*]:text-xs [&_*]:m-0 [&_*]:p-0" emptyText="" />
+          </div>
+        )}
+
+        {(task.dateStart || task.dateEnd) && (
           <div className={`flex items-center gap-1.5 text-xs ${isOverdue ? "text-red-600 dark:text-red-400 font-medium" : "text-muted-foreground"}`}>
-            <Calendar className="h-3.5 w-3.5" />
-            {formatDate(task.dueDate)}
+            <CalendarRange className="h-3.5 w-3.5 shrink-0" />
+            <span>
+              {task.dateStart ? formatDate(task.dateStart) : "—"}
+              {" → "}
+              {task.dateEnd ? formatDate(task.dateEnd) : "—"}
+            </span>
             {isOverdue && " (overdue)"}
           </div>
         )}

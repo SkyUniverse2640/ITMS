@@ -846,6 +846,14 @@ html.dark [role="menuitem"].text-red-400[data-highlighted] {
   }
 }
 
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(14deg); }
+  40% { transform: rotate(-10deg); }
+  60% { transform: rotate(6deg); }
+  80% { transform: rotate(-4deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .page-enter {
     animation: none;

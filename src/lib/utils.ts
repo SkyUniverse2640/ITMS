@@ -35,9 +35,15 @@ export function generateTicketNumber(): string {
   return `TKT${y}${m}${rand}`;
 }
 
-/** Escape user input for safe use in MongoDB $regex (prevents ReDoS) */
-export function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * True when `v` looks like a database id (UUID). Route handlers use this to
+ * answer 404 for a malformed id instead of pushing it into a query.
+ */
+export function isId(v: unknown): v is string {
+  return typeof v === "string" && UUID_RE.test(v);
 }
 
 export function generateAssetTag(): string {
@@ -56,6 +62,17 @@ export function getInitials(name?: string | null): string {
     .toUpperCase()
     .slice(0, 2);
   return initials || "?";
+}
+
+/** Escape HTML special characters to prevent injection in email templates */
+export function escapeHtml(s: string | null | undefined): string {
+  if (!s) return "";
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 export function slugify(text: string): string {

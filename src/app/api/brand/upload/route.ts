@@ -5,8 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
 import { getSession } from "@/lib/auth";
-import connectDB from "@/lib/db";
-import { Settings } from "@/lib/models/Settings";
+import prisma from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { createAuditLog } from "@/lib/audit";
 import {
   BRAND_MEDIA_API_PREFIX,
@@ -149,9 +149,16 @@ export async function POST(req: NextRequest) {
     const ext = getExt(file.name);
     const bytes = Buffer.from(await file.arrayBuffer());
 
-    await connectDB();
-    const before = await Settings.findOne({ key: "appearance" }).lean();
+    const before = await prisma.settings.findUnique({ where: { key: "appearance" } });
     const prevValue = (before?.value || {}) as Record<string, unknown>;
+
+    /** Persist the updated appearance blob. */
+    const saveAppearance = (value: Record<string, unknown>) =>
+      prisma.settings.upsert({
+        where: { key: "appearance" },
+        create: { key: "appearance", value: value as Prisma.InputJsonValue },
+        update: { value: value as Prisma.InputJsonValue },
+      });
 
     if (kind === "font") {
       if (file.size > MAX_FONT_BYTES) {
@@ -194,7 +201,7 @@ export async function POST(req: NextRequest) {
         font: family,
         fontUrl: publicPath,
       };
-      await Settings.findOneAndUpdate({ key: "appearance" }, { value: nextValue }, { upsert: true });
+      await saveAppearance(nextValue);
 
       const prevFont = String(prevValue.fontUrl || "");
       if (isFontUploadPath(prevFont) && prevFont !== publicPath) {
@@ -264,7 +271,7 @@ export async function POST(req: NextRequest) {
       // mirror for tools that expect static path (optional)
       [`${field}File`]: diskPublicPath,
     };
-    await Settings.findOneAndUpdate({ key: "appearance" }, { value: nextValue }, { upsert: true });
+    await saveAppearance(nextValue);
 
     const prevPath = String(prevValue[field] || "");
     if (isBrandUploadPath(prevPath) && prevPath !== publicPath && prevPath !== diskPublicPath) {

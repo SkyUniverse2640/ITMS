@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# prisma generated client (rebuilt by `prisma generate` on install)
+/src/generated/prisma
+
 # claude
 */.claude
 claude.md

@@ -3,9 +3,8 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import bcryptjs from "bcryptjs";
-import connectDB from "@/lib/db";
-import User from "@/lib/models/User";
-import { Settings } from "@/lib/models/Settings";
+import prisma from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
 import { RECOMMENDED_DEPARTMENTS, RECOMMENDED_USERS } from "@/lib/onboarding";
@@ -20,14 +19,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  await connectDB();
   const body = await req.json().catch(() => ({}));
   const type = body?.type as string;
 
   if (type === "departments") {
-    const setting = await Settings.findOne({ key: "departments" }).lean();
+    const setting = await prisma.settings.findUnique({ where: { key: "departments" } });
     const existing = Array.isArray(setting?.value)
-      ? (setting!.value as { id?: string; name: string; description?: string }[])
+      ? (setting.value as unknown as { id?: string; name: string; description?: string }[])
       : [];
     const existingNames = new Set(existing.map((d) => d.name.toLowerCase()));
 
@@ -39,7 +37,11 @@ export async function POST(req: NextRequest) {
     }
 
     const next = [...existing, ...added];
-    await Settings.findOneAndUpdate({ key: "departments" }, { value: next }, { upsert: true });
+    await prisma.settings.upsert({
+      where: { key: "departments" },
+      create: { key: "departments", value: next as unknown as Prisma.InputJsonValue },
+      update: { value: next as unknown as Prisma.InputJsonValue },
+    });
 
     await createAuditLog({
       actorId: session._id,
@@ -66,9 +68,9 @@ export async function POST(req: NextRequest) {
   }
 
   if (type === "users") {
-    const deptSetting = await Settings.findOne({ key: "departments" }).lean();
+    const deptSetting = await prisma.settings.findUnique({ where: { key: "departments" } });
     const depts = Array.isArray(deptSetting?.value)
-      ? (deptSetting!.value as { name: string }[])
+      ? (deptSetting.value as unknown as { name: string }[])
       : [];
     const deptNames = new Set(depts.map((d) => d.name));
 
@@ -93,12 +95,14 @@ export async function POST(req: NextRequest) {
         department = depts[0].name;
       }
 
-      const exists = await User.findOne({
-        $or: [
-          { username: rec.username.toLowerCase() },
-          { email: rec.email.toLowerCase() },
-          { employeeId: rec.employeeId },
-        ],
+      const exists = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: rec.username.toLowerCase() },
+            { email: rec.email.toLowerCase() },
+            { employeeId: rec.employeeId },
+          ],
+        },
       });
       if (exists) {
         skipped++;
@@ -106,18 +110,20 @@ export async function POST(req: NextRequest) {
       }
 
       const hashed = await bcryptjs.hash(rec.password, 12);
-      await User.create({
-        displayName: rec.displayName,
-        username: rec.username.toLowerCase(),
-        email: rec.email.toLowerCase(),
-        employeeId: rec.employeeId,
-        password: hashed,
-        role: rec.role,
-        userTypes: rec.userTypes,
-        jobTitle: rec.jobTitle,
-        department,
-        status: "Active",
-        mustChangePassword: true,
+      await prisma.user.create({
+        data: {
+          displayName: rec.displayName,
+          username: rec.username.toLowerCase(),
+          email: rec.email.toLowerCase(),
+          employeeId: rec.employeeId,
+          password: hashed,
+          role: rec.role,
+          userTypes: rec.userTypes,
+          jobTitle: rec.jobTitle,
+          department,
+          status: "Active",
+          mustChangePassword: true,
+        },
       });
       created++;
       createdUsers.push(rec.username);

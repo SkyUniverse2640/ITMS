@@ -1,4 +1,4 @@
-/** Client-safe brand types & defaults (no mongoose / Node APIs). */
+/** Client-safe brand types & defaults (no database or Node APIs). */
 
 import {
   DEFAULT_ICON,

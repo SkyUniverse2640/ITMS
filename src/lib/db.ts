@@ -1,42 +1,24 @@
-import mongoose from "mongoose";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@/generated/prisma/client";
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/nexusdesk";
-
-interface MongooseCache {
-  conn: typeof mongoose | null;
-  promise: Promise<typeof mongoose> | null;
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  throw new Error("DATABASE_URL environment variable is required");
 }
 
-const globalWithMongoose = globalThis as typeof globalThis & {
-  mongoose: MongooseCache;
+// Reuse one client across hot reloads — otherwise every recompile opens a new pool.
+const globalForPrisma = globalThis as typeof globalThis & {
+  prisma?: PrismaClient;
 };
 
-const cached: MongooseCache = globalWithMongoose.mongoose || { conn: null, promise: null };
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    adapter: new PrismaPg({ connectionString: DATABASE_URL }),
+  });
 
-if (!globalWithMongoose.mongoose) {
-  globalWithMongoose.mongoose = cached;
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
 }
 
-export async function connectDB() {
-  if (cached.conn) return cached.conn;
-
-  if (!cached.promise) {
-    cached.promise = mongoose
-      .connect(MONGODB_URI, {
-        bufferCommands: false,
-        // Fail fast on fresh/misconfigured Mongo so API routes don't hang the UI
-        serverSelectionTimeoutMS: 4000,
-        connectTimeoutMS: 4000,
-      })
-      .catch((err) => {
-        // Allow retry on next call instead of sticky rejected promise
-        cached.promise = null;
-        throw err;
-      });
-  }
-
-  cached.conn = await cached.promise;
-  return cached.conn;
-}
-
-export default connectDB;
+export default prisma;

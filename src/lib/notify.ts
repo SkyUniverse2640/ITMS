@@ -1,10 +1,8 @@
 import "server-only";
 
-import connectDB from "@/lib/db";
-import Notification from "@/lib/models/Notification";
-import { Settings } from "@/lib/models/Settings";
-import User from "@/lib/models/User";
+import prisma from "@/lib/db";
 import { normalizeDepartments, type DeptRoleLabel } from "@/lib/department-roles";
+import { isId } from "@/lib/utils";
 
 export type NotifyType =
   | "ticket_created"
@@ -35,8 +33,9 @@ const TYPE_TO_SETTING: Record<string, string> = {
 
 async function isTypeEnabled(type: NotifyType): Promise<boolean> {
   try {
-    await connectDB();
-    const setting = await Settings.findOne({ key: "notificationSettings" }).lean();
+    const setting = await prisma.settings.findUnique({
+      where: { key: "notificationSettings" },
+    });
     const map = (setting?.value || {}) as Record<string, { enabled?: boolean }>;
     const key = TYPE_TO_SETTING[type] || type;
     const cfg = map[key];
@@ -61,20 +60,19 @@ export async function notifyUser(params: {
     // Approval notifications should always attempt delivery even if settings missing
     const forceTypes = new Set(["approval_requested", "approval_decision"]);
     if (!forceTypes.has(type) && !(await isTypeEnabled(type))) return false;
-    await connectDB();
-    // Avoid CastError on invalid ids
-    const mongoose = (await import("mongoose")).default;
-    if (!mongoose.Types.ObjectId.isValid(recipientId)) {
+    if (!isId(recipientId)) {
       console.error("notifyUser invalid recipientId:", recipientId, type);
       return false;
     }
-    await Notification.create({
-      recipient: recipientId,
-      title,
-      message,
-      type,
-      link: link || undefined,
-      read: false,
+    await prisma.notification.create({
+      data: {
+        recipientId,
+        title,
+        message,
+        type,
+        link: link || undefined,
+        read: false,
+      },
     });
     return true;
   } catch (err) {
@@ -99,12 +97,12 @@ export async function notifyUsers(
 export async function notifySuperAdmins(
   payload: Omit<Parameters<typeof notifyUser>[0], "recipientId">
 ): Promise<number> {
-  await connectDB();
-  const admins = await User.find({ role: "SuperAdmin", status: "Active" })
-    .select("_id")
-    .lean();
+  const admins = await prisma.user.findMany({
+    where: { role: "SuperAdmin", status: "Active" },
+    select: { id: true },
+  });
   return notifyUsers(
-    admins.map((u) => String(u._id)),
+    admins.map((u) => u.id),
     payload
   );
 }
@@ -118,12 +116,11 @@ export async function notifyDepartmentLabel(params: {
   type: NotifyType;
   link?: string;
 }): Promise<number> {
-  await connectDB();
-  const setting = await Settings.findOne({ key: "departments" }).lean();
+  const setting = await prisma.settings.findUnique({ where: { key: "departments" } });
   const depts = normalizeDepartments(setting?.value);
-  const ids = depts
-    .find((d) => d.name.toLowerCase() === params.departmentName.trim().toLowerCase())
-    ?.roles?.[params.label] || [];
+  const ids =
+    depts.find((d) => d.name.toLowerCase() === params.departmentName.trim().toLowerCase())
+      ?.roles?.[params.label] || [];
   return notifyUsers(ids, {
     title: params.title,
     message: params.message,
@@ -141,8 +138,7 @@ export async function resolveSlaNotifyRecipients(params: {
   const { departmentName, notifyRoles, technicianId } = params;
   const ids = new Set<string>();
 
-  await connectDB();
-  const setting = await Settings.findOne({ key: "departments" }).lean();
+  const setting = await prisma.settings.findUnique({ where: { key: "departments" } });
   const depts = normalizeDepartments(setting?.value);
   const dept = depts.find(
     (d) => d.name.toLowerCase() === departmentName.trim().toLowerCase()
@@ -152,10 +148,11 @@ export async function resolveSlaNotifyRecipients(params: {
     if (role === "Director" || role === "Manager" || role === "Supervisor") {
       for (const uid of dept?.roles?.[role] || []) ids.add(uid);
     } else if (role === "SuperAdmin") {
-      const admins = await User.find({ role: "SuperAdmin", status: "Active" })
-        .select("_id")
-        .lean();
-      for (const a of admins) ids.add(String(a._id));
+      const admins = await prisma.user.findMany({
+        where: { role: "SuperAdmin", status: "Active" },
+        select: { id: true },
+      });
+      for (const a of admins) ids.add(a.id);
     } else if (role === "Technician" && technicianId) {
       ids.add(String(technicianId));
     }

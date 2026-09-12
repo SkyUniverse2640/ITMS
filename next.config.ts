@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
-  serverExternalPackages: ["mongoose", "bcryptjs"],
+  serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "bcryptjs"],
   images: {
     // Brand assets use plain <img> + /api/brand/media; keep local static defaults allowed
     localPatterns: [

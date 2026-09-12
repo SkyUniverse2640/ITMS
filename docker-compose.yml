@@ -8,25 +8,59 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - MONGODB_URI=mongodb://mongo:27017/nexusdesk
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-nexusdesk}:${POSTGRES_PASSWORD:-nexusdesk}@postgres:5432/${POSTGRES_DB:-nexusdesk}
       - JWT_SECRET=${JWT_SECRET:-nexusdesk-secret-change-in-production}
       - NODE_ENV=production
     depends_on:
-      mongo:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - nexusdesk
+
+  # One-shot: brings the database schema up to date before the app starts.
+  # Built from the `builder` stage because the Prisma CLI needs the full
+  # node_modules, which the app's standalone bundle deliberately omits.
+  # Seed a fresh database with:
+  #   docker compose run --rm migrate npx prisma db seed
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: nexusdesk-migrate
+    command: npx prisma migrate deploy
+    restart: "no"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-nexusdesk}:${POSTGRES_PASSWORD:-nexusdesk}@postgres:5432/${POSTGRES_DB:-nexusdesk}
+    depends_on:
+      postgres:
         condition: service_healthy
     networks:
       - nexusdesk
 
-  mongo:
-    image: mongo:7
-    container_name: nexusdesk-mongo
+  postgres:
+    image: postgres:18-alpine
+    container_name: nexusdesk-postgres
     restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-nexusdesk}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-nexusdesk}
+      - POSTGRES_DB=${POSTGRES_DB:-nexusdesk}
     volumes:
-      - mongo-data:/data/db
+      # postgres:18+ expects the mount one level up from the old
+      # /var/lib/postgresql/data, and places the cluster in a
+      # major-version subdirectory so pg_upgrade --link can work.
+      - postgres-data:/var/lib/postgresql
     ports:
-      - "27017:27017"
+      # Bound to loopback so the database is reachable for local admin work
+      # (psql, pg_dump) but never exposed to the LAN. The app itself connects
+      # over the compose network, not through this mapping. Override the host
+      # port with POSTGRES_PORT if 5432 is already taken.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nexusdesk} -d ${POSTGRES_DB:-nexusdesk}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,26 +68,32 @@ services:
     networks:
       - nexusdesk
 
-  mongo-backup:
-    image: mongo:7
+  postgres-backup:
+    image: postgres:18-alpine
     container_name: nexusdesk-backup
     restart: unless-stopped
     depends_on:
-      mongo:
+      postgres:
         condition: service_healthy
+    environment:
+      - PGHOST=postgres
+      - PGUSER=${POSTGRES_USER:-nexusdesk}
+      - PGPASSWORD=${POSTGRES_PASSWORD:-nexusdesk}
+      - PGDATABASE=${POSTGRES_DB:-nexusdesk}
     volumes:
       - ./backups:/backups
     networks:
       - nexusdesk
+    # Daily custom-format dump; restore with `pg_restore -d <db> <file>`.
     entrypoint: |
-      bash -c 'while true; do
+      sh -c 'while true; do
         sleep 86400;
-        mongodump --host mongo --db nexusdesk --archive=/backups/nexusdesk-$$(date +%Y%m%d).gz --gzip;
-        find /backups -name "*.gz" -mtime +7 -delete;
+        pg_dump -Fc -f /backups/nexusdesk-$$(date +%Y%m%d).dump;
+        find /backups -name "*.dump" -mtime +7 -delete;
       done'
 
 volumes:
-  mongo-data:
+  postgres-data:
 
 networks:
   nexusdesk:

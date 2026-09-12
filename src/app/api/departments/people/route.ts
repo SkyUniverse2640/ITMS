@@ -2,9 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import connectDB from "@/lib/db";
-import User from "@/lib/models/User";
-import { Settings } from "@/lib/models/Settings";
+import prisma from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import {
   DEPT_ROLE_LABELS,
@@ -24,7 +22,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  await connectDB();
   const url = new URL(req.url);
   const department = (url.searchParams.get("department") || "").trim();
   const labelParam = (url.searchParams.get("label") || "").trim();
@@ -33,7 +30,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: "department required" }, { status: 400 });
   }
 
-  const setting = await Settings.findOne({ key: "departments" }).lean();
+  const setting = await prisma.settings.findUnique({ where: { key: "departments" } });
   const depts = normalizeDepartments(setting?.value);
   const dept = depts.find((d) => d.name.toLowerCase() === department.toLowerCase());
   if (!dept) {
@@ -55,43 +52,41 @@ export async function GET(req: NextRequest) {
     for (const id of ids) allIds.add(id);
   }
 
-  const users = await User.find({
-    _id: { $in: [...allIds] },
-    status: "Active",
-  })
-    .select("_id displayName email username department jobTitle")
-    .lean();
+  const users = await prisma.user.findMany({
+    where: { id: { in: [...allIds] }, status: "Active" },
+    select: {
+      id: true,
+      displayName: true,
+      email: true,
+      username: true,
+      department: true,
+      jobTitle: true,
+    },
+  });
 
-  const userMap = new Map(users.map((u) => [String(u._id), u]));
+  const userMap = new Map(users.map((u) => [u.id, u]));
 
-  const peopleByLabel: Record<
-    string,
-    { _id: string; displayName: string; email: string; username?: string; jobTitle?: string }[]
-  > = {};
+  const toPerson = (u: (typeof users)[number]) => ({
+    _id: u.id,
+    displayName: u.displayName,
+    email: u.email,
+    username: u.username,
+    jobTitle: u.jobTitle ?? undefined,
+  });
+
+  const peopleByLabel: Record<string, ReturnType<typeof toPerson>[]> = {};
   for (const lab of labels) {
     peopleByLabel[lab] = (byLabel[lab] || [])
       .map((id) => userMap.get(id))
-      .filter(Boolean)
-      .map((u) => ({
-        _id: String(u!._id),
-        displayName: u!.displayName,
-        email: u!.email,
-        username: u!.username,
-        jobTitle: u!.jobTitle,
-      }));
+      .filter((u): u is (typeof users)[number] => Boolean(u))
+      .map(toPerson);
   }
 
   // Flat list if single label requested
   const people =
     labelParam && isDeptRoleLabel(labelParam)
       ? peopleByLabel[labelParam] || []
-      : users.map((u) => ({
-          _id: String(u._id),
-          displayName: u.displayName,
-          email: u.email,
-          username: u.username,
-          jobTitle: u.jobTitle,
-        }));
+      : users.map(toPerson);
 
   return NextResponse.json({
     success: true,

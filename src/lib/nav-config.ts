@@ -24,6 +24,7 @@ export const GENERAL_NAV: AppNavItem[] = [
   { id: "dashboard", label: "Dashboard", href: "/", icon: "LayoutDashboard", order: 0, section: "general" },
   { id: "requests", label: "Requests", href: "/tickets", icon: "Ticket", order: 1, section: "general" },
   { id: "assets", label: "Assets", href: "/assets", icon: "Package", order: 2, section: "general" },
+  { id: "tasks", label: "Tasks", href: "/tasks", icon: "CheckSquare", order: 3, section: "general" },
 ];
 
 /** SuperAdmin Feature — kategori sesuai spek */
@@ -104,6 +105,7 @@ export const DEFAULT_NAV_ACCESS: NavAccessMap = {
   dashboard: "all",
   requests: "all",
   assets: "all",
+  tasks: "all",
 };
 
 export function filterNavForUser(

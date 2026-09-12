@@ -3,12 +3,12 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import bcryptjs from "bcryptjs";
-import connectDB from "@/lib/db";
-import User from "@/lib/models/User";
-import ImportHistory from "@/lib/models/ImportHistory";
-import { Settings } from "@/lib/models/Settings";
+import prisma from "@/lib/db";
+import type { Prisma, UserRole, UserStatus } from "@/generated/prisma/client";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
+import { serialize } from "@/lib/serialize";
+import { isId } from "@/lib/utils";
 
 const ROLES = new Set(["SuperAdmin", "User"]);
 const STATUSES = new Set(["Active", "Inactive"]);
@@ -29,14 +29,14 @@ function parseUserTypes(raw: unknown): string[] {
     .filter(Boolean);
 }
 
-function normalizeStatus(raw: unknown): "Active" | "Inactive" {
+function normalizeStatus(raw: unknown): UserStatus {
   if (typeof raw !== "string") return "Active";
   const s = raw.trim().toLowerCase();
   if (s === "inactive" || s === "disabled" || s === "0" || s === "false") return "Inactive";
   return "Active";
 }
 
-function normalizeRole(raw: unknown): "SuperAdmin" | "User" {
+function normalizeRole(raw: unknown): UserRole {
   if (typeof raw !== "string") return "User";
   const s = raw.trim().toLowerCase();
   if (s === "superadmin" || s === "super_admin" || s === "admin") return "SuperAdmin";
@@ -49,7 +49,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  await connectDB();
   const body = await req.json();
   const rows = body.users ?? body.rows;
   const fileName = typeof body.fileName === "string" ? body.fileName : "import.csv";
@@ -61,8 +60,8 @@ export async function POST(req: NextRequest) {
 
   // Load managed departments + allowed user types
   const [deptSetting, utSetting] = await Promise.all([
-    Settings.findOne({ key: "departments" }).lean(),
-    Settings.findOne({ key: "userTypes" }).lean(),
+    prisma.settings.findUnique({ where: { key: "departments" } }),
+    prisma.settings.findUnique({ where: { key: "userTypes" } }),
   ]);
 
   const deptNames = new Set<string>();
@@ -200,8 +199,8 @@ export async function POST(req: NextRequest) {
       seenEmail.add(email);
       seenEmp.add(employeeId);
 
-      const existing = await User.findOne({
-        $or: [{ username }, { email }, { employeeId }],
+      const existing = await prisma.user.findFirst({
+        where: { OR: [{ username }, { email }, { employeeId }] },
       });
 
       if (existing) {
@@ -223,9 +222,11 @@ export async function POST(req: NextRequest) {
         }
 
         // Conflict if another field collides with a different user
-        const conflict = await User.findOne({
-          _id: { $ne: existing._id },
-          $or: [{ username }, { email }, { employeeId }],
+        const conflict = await prisma.user.findFirst({
+          where: {
+            id: { not: existing.id },
+            OR: [{ username }, { email }, { employeeId }],
+          },
         });
         if (conflict) {
           results.push({
@@ -238,35 +239,39 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        existing.displayName = displayName;
-        existing.username = username;
-        existing.email = email;
-        existing.employeeId = employeeId;
-        existing.role = role;
-        existing.userTypes = userTypes;
-        existing.jobTitle = jobTitle;
-        existing.department = department;
-        existing.mobile = mobile;
-        existing.status = status;
-        if (raw.password && String(raw.password).trim()) {
-          existing.password = await bcryptjs.hash(password, 12);
-        }
-        await existing.save();
-        results.push({ row: rowNum, status: "updated", key: username, data: snapshot });
-      } else {
-        await User.create({
+        const update: Prisma.UserUpdateInput = {
           displayName,
           username,
           email,
           employeeId,
-          password: await bcryptjs.hash(password, 12),
           role,
           userTypes,
-          jobTitle,
-          department,
-          mobile,
+          jobTitle: jobTitle ?? null,
+          department: department ?? null,
+          mobile: mobile ?? null,
           status,
-          mustChangePassword: true,
+        };
+        if (raw.password && String(raw.password).trim()) {
+          update.password = await bcryptjs.hash(password, 12);
+        }
+        await prisma.user.update({ where: { id: existing.id }, data: update });
+        results.push({ row: rowNum, status: "updated", key: username, data: snapshot });
+      } else {
+        await prisma.user.create({
+          data: {
+            displayName,
+            username,
+            email,
+            employeeId,
+            password: await bcryptjs.hash(password, 12),
+            role,
+            userTypes,
+            jobTitle,
+            department,
+            mobile,
+            status,
+            mustChangePassword: true,
+          },
         });
         results.push({ row: rowNum, status: "created", key: username, data: snapshot });
       }
@@ -287,19 +292,21 @@ export async function POST(req: NextRequest) {
     .filter((r) => r.status === "failed")
     .map((r) => ({ row: r.row, data: r.data, error: r.error || "failed" }));
 
-  const history = await ImportHistory.create({
-    type: "users",
-    fileName,
-    importedBy: session._id,
-    importedByName: session.displayName,
-    summary: { total: rows.length, created, updated, failed },
-    failures,
-    results: results.map((r) => ({
-      row: r.row,
-      status: r.status,
-      error: r.error,
-      key: r.key,
-    })),
+  const history = await prisma.importHistory.create({
+    data: {
+      type: "users",
+      fileName,
+      importedById: session._id,
+      importedByName: session.displayName,
+      summary: { total: rows.length, created, updated, failed },
+      failures: failures as unknown as Prisma.InputJsonValue,
+      results: results.map((r) => ({
+        row: r.row,
+        status: r.status,
+        error: r.error ?? null,
+        key: r.key ?? null,
+      })),
+    },
   });
 
   await createAuditLog({
@@ -307,14 +314,14 @@ export async function POST(req: NextRequest) {
     actorName: session.displayName,
     action: "Create",
     module: "User",
-    targetId: history._id.toString(),
+    targetId: history.id,
     targetLabel: `User Import: ${created} created, ${updated} updated, ${failed} failed (${fileName})`,
   });
 
   return NextResponse.json({
     success: true,
     data: {
-      historyId: history._id,
+      historyId: history.id,
       results,
       failures,
       summary: { total: rows.length, created, updated, failed },
@@ -328,32 +335,34 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  await connectDB();
   const url = new URL(req.url);
   const id = url.searchParams.get("id");
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
   const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "20")));
 
   if (id) {
-    const doc = await ImportHistory.findById(id).lean();
+    const doc = isId(id)
+      ? await prisma.importHistory.findUnique({ where: { id } })
+      : null;
     if (!doc || doc.type !== "users") {
       return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     }
-    return NextResponse.json({ success: true, data: doc });
+    return NextResponse.json({ success: true, data: serialize(doc) });
   }
 
   const [items, total] = await Promise.all([
-    ImportHistory.find({ type: "users" })
-      .sort("-createdAt")
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean(),
-    ImportHistory.countDocuments({ type: "users" }),
+    prisma.importHistory.findMany({
+      where: { type: "users" },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.importHistory.count({ where: { type: "users" } }),
   ]);
 
   return NextResponse.json({
     success: true,
-    data: items,
+    data: serialize(items),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 }

@@ -2,25 +2,26 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import mongoose from "mongoose";
-import connectDB from "@/lib/db";
-import Ticket from "@/lib/models/Ticket";
-// Register models used by populate
-import "@/lib/models/User";
+import prisma from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
 import { generateTicketNumberForType } from "@/lib/ticket-number";
 import { notifyUser, notifyUsers } from "@/lib/notify";
+import { sendEmail } from "@/lib/send-email";
 import { computeSlaDueDates, computeSlaFlags, derivePriorityFromMatrix } from "@/lib/sla";
-import { Settings } from "@/lib/models/Settings";
-import { escapeRegex } from "@/lib/utils";
+import { serialize } from "@/lib/serialize";
+import { escapeHtml, isId } from "@/lib/utils";
 import { sanitizeRichText } from "@/lib/sanitize-html";
+import { isUniqueViolation, isForeignKeyViolation } from "@/lib/prisma-errors";
+
+/** Requester / technician summary for the ticket list. */
+const LIST_USER_REF = { id: true, displayName: true, email: true } as const;
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
-  await connectDB();
   const url = new URL(req.url);
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
   const limit = Math.min(100, parseInt(url.searchParams.get("limit") || "20"));
@@ -31,7 +32,8 @@ export async function GET(req: NextRequest) {
   const requester = url.searchParams.get("requester") || "";
   const view = url.searchParams.get("view") || "";
 
-  const filter: Record<string, unknown> = {};
+  const where: Prisma.TicketWhereInput = {};
+  const scopes: Prisma.TicketWhereInput[] = [];
 
   if (session.role !== "SuperAdmin") {
     const isAuditor = session.userTypes.includes("Auditor");
@@ -39,57 +41,59 @@ export async function GET(req: NextRequest) {
       const isTechnician = session.userTypes.includes("Technician");
       const isApprover = session.userTypes.includes("Approver");
       if (view === "my") {
-        filter.requester = session._id;
+        where.requesterId = session._id;
       } else if (view === "assigned") {
-        filter.technician = session._id;
+        where.technicianId = session._id;
       } else if (view === "approvals") {
         // Tickets waiting for this user as approver
-        filter.approver = session._id;
-        filter.approvalStatus = "Pending";
+        where.approverId = session._id;
+        where.approvalStatus = "Pending";
       } else if (isTechnician || isApprover) {
-        filter.$or = [
-          { requester: session._id },
-          { technician: session._id },
-          { approver: session._id },
-        ];
+        scopes.push({
+          OR: [
+            { requesterId: session._id },
+            { technicianId: session._id },
+            { approverId: session._id },
+          ],
+        });
       } else {
-        filter.requester = session._id;
+        where.requesterId = session._id;
       }
     }
   } else if (view === "approvals") {
-    filter.approvalStatus = "Pending";
+    where.approvalStatus = "Pending";
   }
 
   if (search) {
-    const escaped = escapeRegex(search);
-    const searchClause = {
-      $or: [
-        { ticketNumber: { $regex: escaped, $options: "i" } },
-        { subject: { $regex: escaped, $options: "i" } },
-        { requesterName: { $regex: escaped, $options: "i" } },
-      ],
-    };
-    if (filter.$or) {
-      filter.$and = [{ $or: filter.$or as unknown[] }, searchClause];
-      delete filter.$or;
-    } else {
-      Object.assign(filter, searchClause);
-    }
+    const like = { contains: search, mode: "insensitive" } as const;
+    scopes.push({
+      OR: [{ ticketNumber: like }, { subject: like }, { requesterName: like }],
+    });
   }
-  if (status) filter.status = status;
-  if (priority) filter.priority = priority;
-  if (technician) filter.technician = technician;
-  if (requester) filter.requester = requester;
+  if (status) where.status = status;
+  if (priority) where.priority = priority;
+  // Caller-supplied ids go through AND so they can only narrow the visibility
+  // scope set above, never replace it. A malformed id matches nothing.
+  if (technician) {
+    scopes.push({ technicianId: isId(technician) ? technician : { in: [] } });
+  }
+  if (requester) {
+    scopes.push({ requesterId: isId(requester) ? requester : { in: [] } });
+  }
+  if (scopes.length) where.AND = scopes;
 
   const [tickets, total] = await Promise.all([
-    Ticket.find(filter)
-      .populate("technician", "displayName")
-      .populate("requester", "displayName email")
-      .sort("-createdAt")
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean(),
-    Ticket.countDocuments(filter),
+    prisma.ticket.findMany({
+      where,
+      include: {
+        technician: { select: LIST_USER_REF },
+        requester: { select: LIST_USER_REF },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.ticket.count({ where }),
   ]);
 
   // SLA is derived, not a stored fact: re-evaluate OK/Breach on read so open
@@ -97,21 +101,20 @@ export async function GET(req: NextRequest) {
   // (keeps the stored value truthful for reports without a write per read).
   const now = new Date();
   const flips: { id: string; slaBreached: boolean; slaRespondBreached: boolean }[] = [];
-  for (const raw of tickets) {
-    const t = raw as unknown as Record<string, unknown>;
+  for (const t of tickets) {
     const flags = computeSlaFlags({
-      slaRespondDueAt: t.slaRespondDueAt as Date | undefined,
-      slaDueAt: t.slaDueAt as Date | undefined,
-      slaRespondedAt: t.slaRespondedAt as Date | undefined,
-      resolvedAt: t.resolvedAt as Date | undefined,
-      closedAt: t.closedAt as Date | undefined,
+      slaRespondDueAt: t.slaRespondDueAt,
+      slaDueAt: t.slaDueAt,
+      slaRespondedAt: t.slaRespondedAt,
+      resolvedAt: t.resolvedAt,
+      closedAt: t.closedAt,
       now,
     });
     if (
-      flags.slaBreached !== Boolean(t.slaBreached) ||
-      flags.slaRespondBreached !== Boolean(t.slaRespondBreached)
+      flags.slaBreached !== t.slaBreached ||
+      flags.slaRespondBreached !== t.slaRespondBreached
     ) {
-      flips.push({ id: String(t._id), ...flags });
+      flips.push({ id: t.id, ...flags });
     }
     t.slaBreached = flags.slaBreached;
     t.slaRespondBreached = flags.slaRespondBreached;
@@ -119,17 +122,17 @@ export async function GET(req: NextRequest) {
   if (flips.length > 0) {
     await Promise.all(
       flips.map((f) =>
-        Ticket.updateOne(
-          { _id: f.id },
-          { $set: { slaBreached: f.slaBreached, slaRespondBreached: f.slaRespondBreached } }
-        )
+        prisma.ticket.update({
+          where: { id: f.id },
+          data: { slaBreached: f.slaBreached, slaRespondBreached: f.slaRespondBreached },
+        })
       )
     );
   }
 
   return NextResponse.json({
     success: true,
-    data: tickets,
+    data: serialize(tickets),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 }
@@ -138,18 +141,16 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
-  await connectDB();
   const body = await req.json();
 
-  // Sanitize approver id (must be valid ObjectId)
+  // Sanitize approver id (must be a real id)
   const rawApprover =
     typeof body.approver === "string"
       ? body.approver.trim()
       : body.approver
         ? String(body.approver)
         : "";
-  const approverId =
-    rawApprover && mongoose.Types.ObjectId.isValid(rawApprover) ? rawApprover : "";
+  const approverId = isId(rawApprover) ? rawApprover : "";
 
   // Status: need approval → Pending Approval, else Open
   const status = approverId ? "Pending Approval" : "Open";
@@ -182,12 +183,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Subject required" }, { status: 400 });
   }
 
-  // Clean payload — do not spread raw body (breaks casts / injects junk fields)
-  const createPayload: Record<string, unknown> = {
+  const relatedAssetIds = Array.isArray(body.relatedAssets)
+    ? [
+        ...new Set(
+          (body.relatedAssets as unknown[]).map((a) => String(a)).filter((a) => isId(a))
+        ),
+      ]
+    : [];
+
+  const technicianId =
+    body.technician && isId(String(body.technician)) ? String(body.technician) : undefined;
+
+  // Clean payload — do not spread raw body (injects junk fields)
+  const createData = {
     requestType,
     status,
     impact,
-    urgency: urgency,
+    urgency,
     priority,
     department,
     group: department,
@@ -196,48 +208,61 @@ export async function POST(req: NextRequest) {
     project: typeof body.project === "string" ? body.project : undefined,
     subject,
     description: typeof body.description === "string" ? sanitizeRichText(body.description) : "",
-    requester: session._id,
+    requesterId: session._id,
     requesterName: session.displayName,
     requesterEmail: session.email,
-    relatedAssets: Array.isArray(body.relatedAssets) ? body.relatedAssets : [],
-    attachments: Array.isArray(body.attachments) ? body.attachments : [],
-    approvalStatus: approverId ? "Pending" : undefined,
+    attachments: Array.isArray(body.attachments) ? body.attachments.map(String) : [],
+    approvalStatus: approverId ? ("Pending" as const) : undefined,
     approvalLabel,
+    approverId: approverId || undefined,
+    technicianId,
     slaDueAt: resolveDueAt || undefined,
     slaRespondDueAt: respondDueAt || undefined,
-  };
-  if (approverId) createPayload.approver = approverId;
-  if (body.technician && mongoose.Types.ObjectId.isValid(String(body.technician))) {
-    createPayload.technician = String(body.technician);
-  }
+    relatedAssets: relatedAssetIds.length
+      ? { create: relatedAssetIds.map((assetId) => ({ assetId })) }
+      : undefined,
+    // ticketNumber is added per attempt in the retry loop below.
+  } satisfies Omit<Prisma.TicketUncheckedCreateInput, "ticketNumber">;
 
   // Retry on rare ticketNumber collision under concurrent creates
-  let ticket = null;
+  let ticket: Awaited<ReturnType<typeof prisma.ticket.create>> | null = null;
   let lastErr: unknown = null;
   for (let attempt = 0; attempt < 5; attempt++) {
+    const ticketNumber = await generateTicketNumberForType(requestType);
     try {
-      const ticketNumber = await generateTicketNumberForType(requestType);
-      ticket = await Ticket.create({
-        ...createPayload,
-        ticketNumber,
-        logs: [
-          {
-            actor: session._id,
-            actorName: session.displayName,
-            actorEmail: session.email,
-            action: "created",
-            message: `This Ticket ${ticketNumber} Was Created by ${session.displayName} ${session.email}`,
-            toStatus: status,
+      ticket = await prisma.ticket.create({
+        data: {
+          ...createData,
+          ticketNumber,
+          logs: {
+            create: [
+              {
+                actorId: session._id,
+                actorName: session.displayName,
+                actorEmail: session.email,
+                action: "created",
+                message: `This Ticket ${ticketNumber} Was Created by ${session.displayName} ${session.email}`,
+                toStatus: status,
+              },
+            ],
           },
-        ],
+        },
       });
       break;
     } catch (err) {
       lastErr = err;
-      const msg = String((err as { code?: number; message?: string })?.message || "");
-      const isDup =
-        (err as { code?: number })?.code === 11000 || /duplicate|E11000/i.test(msg);
-      if (!isDup) {
+      if (isForeignKeyViolation(err)) {
+        // A supplied approver / technician / asset id no longer exists.
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Approver, technician, or related asset no longer exists. Reload the page and try again.",
+          },
+          { status: 400 }
+        );
+      }
+      if (!isUniqueViolation(err, "ticket_number")) {
         console.error("Ticket create error:", err);
         throw err;
       }
@@ -251,7 +276,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const ticketId = String(ticket._id);
+  const ticketId = ticket.id;
   const link = `/tickets/${ticketId}`;
 
   // Notifications must not fail the create response
@@ -259,10 +284,38 @@ export async function POST(req: NextRequest) {
     await notifyUser({
       recipientId: session._id,
       title: "Ticket Created",
-      message: `Your ticket ${ticket.ticketNumber} was created successfully: ${ticket.subject}`,
+      message: `Your Ticket With Requests ID: ${ticket.ticketNumber} Successfully Created. And now, Status: ${ticket.status}. Click here to Monitor your Ticket.`,
       type: "ticket_created",
       link,
     });
+
+    // Email notification
+    const requesterUser = await prisma.user.findUnique({
+      where: { id: session._id },
+      select: { email: true, displayName: true },
+    });
+    if (requesterUser?.email) {
+      sendEmail({
+        to: requesterUser.email,
+        subject: `Ticket ${escapeHtml(ticket.ticketNumber)} Created Successfully`,
+        html: `
+          <h2>Ticket Created</h2>
+          <p>Hi ${escapeHtml(requesterUser.displayName || "User")},</p>
+          <p>Your Ticket With Requests ID: <strong>${escapeHtml(ticket.ticketNumber)}</strong> Successfully Created.</p>
+          <p>Status: <strong>${escapeHtml(ticket.status)}</strong></p>
+          <p>Subject: ${escapeHtml(ticket.subject)}</p>
+          <hr/>
+          <h3>Ticket Log</h3>
+          <ul>
+            <li><strong>Created:</strong> ${new Date().toLocaleString()}</li>
+            <li><strong>Priority:</strong> ${escapeHtml(ticket.priority)}</li>
+            <li><strong>Category:</strong> ${escapeHtml(ticket.category || "—")}</li>
+            <li><strong>Status:</strong> ${escapeHtml(ticket.status)}</li>
+          </ul>
+          <p><a href="${escapeHtml(process.env.NEXT_PUBLIC_APP_URL || "")}${escapeHtml(link)}">Click here to Monitor your Ticket</a></p>
+        `,
+      }).catch(() => {});
+    }
   } catch (e) {
     console.error("Notify requester failed:", e);
   }
@@ -289,7 +342,7 @@ export async function POST(req: NextRequest) {
     typeof body.category === "string" ? body.category.trim() : String(ticket.category || "").trim();
   if (categoryName) {
     try {
-      const catSetting = await Settings.findOne({ key: "ticketCategories" }).lean();
+      const catSetting = await prisma.settings.findUnique({ where: { key: "ticketCategories" } });
       const cats = Array.isArray(catSetting?.value) ? catSetting.value : [];
       const cat = cats.find(
         (x: unknown) =>
@@ -298,9 +351,9 @@ export async function POST(req: NextRequest) {
           String((x as { name?: string }).name || "").toLowerCase() === categoryName.toLowerCase()
       ) as { members?: unknown } | undefined;
       const memberIds = Array.isArray(cat?.members)
-        ? cat!.members!.map((id) => String(id)).filter(Boolean)
+        ? cat.members.map((id) => String(id)).filter(Boolean)
         : [];
-      const skip = new Set([String(session._id), approverId].filter(Boolean));
+      const skip = new Set([session._id, approverId].filter(Boolean));
       const toNotify = memberIds.filter((id) => !skip.has(id));
       if (toNotify.length > 0) {
         await notifyUsers(toNotify, {
@@ -331,5 +384,5 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ success: true, data: ticket }, { status: 201 });
+  return NextResponse.json({ success: true, data: serialize(ticket) }, { status: 201 });
 }

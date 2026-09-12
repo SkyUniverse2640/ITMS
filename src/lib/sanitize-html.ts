@@ -13,7 +13,7 @@ const RICH_TEXT_CONFIG = {
     "h1", "h2", "h3", "h4", "h5", "h6",
     "a", "span", "hr",
   ],
-  ALLOWED_ATTR: ["href", "target", "rel", "class", "style"],
+  ALLOWED_ATTR: ["href", "target", "rel", "class"],
   // Only permit safe URL schemes on links.
   ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
   ALLOW_DATA_ATTR: false,

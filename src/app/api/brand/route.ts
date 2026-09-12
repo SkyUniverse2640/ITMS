@@ -2,8 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import connectDB from "@/lib/db";
-import { Settings } from "@/lib/models/Settings";
+import prisma from "@/lib/db";
 import { DEFAULT_BRAND, normalizeBrandAppearance } from "@/lib/brand-shared";
 
 /**
@@ -13,8 +12,7 @@ import { DEFAULT_BRAND, normalizeBrandAppearance } from "@/lib/brand-shared";
  */
 export async function GET() {
   try {
-    await connectDB();
-    const setting = await Settings.findOne({ key: "appearance" }).lean();
+    const setting = await prisma.settings.findUnique({ where: { key: "appearance" } });
     const value = (setting?.value || {}) as Record<string, unknown>;
     return NextResponse.json({
       success: true,

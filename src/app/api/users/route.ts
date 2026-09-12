@@ -3,17 +3,30 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import bcryptjs from "bcryptjs";
-import connectDB from "@/lib/db";
-import User from "@/lib/models/User";
+import prisma from "@/lib/db";
+import type { Prisma, UserRole, UserStatus } from "@/generated/prisma/client";
 import { getSession } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
-import { escapeRegex } from "@/lib/utils";
+import { serialize } from "@/lib/serialize";
+
+/** Columns allowed for field-scoped search */
+const SEARCHABLE = new Set([
+  "displayName",
+  "username",
+  "email",
+  "employeeId",
+  "department",
+  "jobTitle",
+  "mobile",
+  "role",
+  "status",
+  "userTypes",
+]);
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
-  await connectDB();
   const url = new URL(req.url);
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
   const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "20")));
@@ -23,54 +36,59 @@ export async function GET(req: NextRequest) {
   const userType = url.searchParams.get("userType") || "";
   const status = url.searchParams.get("status") || "";
 
-  const filter: Record<string, unknown> = {};
-  const rx = (q: string) => ({ $regex: escapeRegex(q), $options: "i" });
-
-  /** Columns allowed for field-scoped search */
-  const SEARCHABLE: Record<string, string> = {
-    displayName: "displayName",
-    username: "username",
-    email: "email",
-    employeeId: "employeeId",
-    department: "department",
-    jobTitle: "jobTitle",
-    mobile: "mobile",
-    role: "role",
-    status: "status",
-    userTypes: "userTypes",
-  };
+  const where: Prisma.UserWhereInput = {};
+  const like = { contains: search, mode: "insensitive" } as const;
 
   if (search) {
-    const col = SEARCHABLE[searchColumn];
-    if (col) {
-      filter[col] = rx(search);
+    // role and status are enums, so they can't take `contains`. Resolve the
+    // substring against the fixed value lists here to keep partial search
+    // working ("admin" still finds SuperAdmin).
+    const q = search.toLowerCase();
+    const roles = (["SuperAdmin", "User"] as UserRole[]).filter((r) =>
+      r.toLowerCase().includes(q)
+    );
+    const statuses = (["Active", "Inactive"] as UserStatus[]).filter((s) =>
+      s.toLowerCase().includes(q)
+    );
+
+    if (SEARCHABLE.has(searchColumn)) {
+      if (searchColumn === "role") where.role = { in: roles };
+      else if (searchColumn === "status") where.status = { in: statuses };
+      else if (searchColumn === "userTypes") where.userTypes = { has: search };
+      else where[searchColumn as "displayName"] = like;
     } else {
-      filter.$or = [
-        { displayName: rx(search) },
-        { email: rx(search) },
-        { username: rx(search) },
-        { employeeId: rx(search) },
-        { department: rx(search) },
-        { jobTitle: rx(search) },
-        { mobile: rx(search) },
-        { role: rx(search) },
-        { status: rx(search) },
-        { userTypes: rx(search) },
+      where.OR = [
+        { displayName: like },
+        { email: like },
+        { username: like },
+        { employeeId: like },
+        { department: like },
+        { jobTitle: like },
+        { mobile: like },
+        { userTypes: { has: search } },
+        ...(roles.length ? [{ role: { in: roles } }] : []),
+        ...(statuses.length ? [{ status: { in: statuses } }] : []),
       ];
     }
   }
-  if (role) filter.role = role;
-  if (userType) filter.userTypes = userType;
-  if (status) filter.status = status;
+  if (role) where.role = role as UserRole;
+  if (userType) where.userTypes = { has: userType };
+  if (status) where.status = status as UserStatus;
 
   const [users, total] = await Promise.all([
-    User.find(filter).select("-password").sort("-createdAt").skip((page - 1) * limit).limit(limit).lean(),
-    User.countDocuments(filter),
+    prisma.user.findMany({
+      where,
+      omit: { password: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.user.count({ where }),
   ]);
 
   return NextResponse.json({
     success: true,
-    data: users,
+    data: serialize(users),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 }
@@ -81,11 +99,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  await connectDB();
   const body = await req.json();
 
-  const existing = await User.findOne({
-    $or: [{ username: body.username?.toLowerCase() }, { email: body.email?.toLowerCase() }, { employeeId: body.employeeId }],
+  const existing = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { username: body.username?.toLowerCase() },
+        { email: body.email?.toLowerCase() },
+        { employeeId: body.employeeId },
+      ],
+    },
   });
   if (existing) {
     return NextResponse.json({ success: false, error: "Username, email, or employee ID already exists" }, { status: 409 });
@@ -94,27 +117,30 @@ export async function POST(req: NextRequest) {
   const hashedPassword = await bcryptjs.hash(body.password || "Welcome123", 12);
 
   // Normalize status to schema enum: Active | Inactive
-  let status: "Active" | "Inactive" = "Active";
+  let status: UserStatus = "Active";
   if (typeof body.status === "string") {
     const s = body.status.toLowerCase();
     if (s === "inactive") status = "Inactive";
     else if (s === "active") status = "Active";
   }
 
-  const user = await User.create({
-    displayName: body.displayName,
-    username: body.username.toLowerCase(),
-    email: body.email.toLowerCase(),
-    employeeId: body.employeeId,
-    password: hashedPassword,
-    role: body.role,
-    userTypes: body.userTypes,
-    jobTitle: body.jobTitle,
-    department: body.department,
-    mobile: body.mobile,
-    site: body.site,
-    status,
-    mustChangePassword: true,
+  const user = await prisma.user.create({
+    data: {
+      displayName: body.displayName,
+      username: body.username.toLowerCase(),
+      email: body.email.toLowerCase(),
+      employeeId: body.employeeId,
+      password: hashedPassword,
+      role: body.role === "SuperAdmin" ? "SuperAdmin" : "User",
+      userTypes: Array.isArray(body.userTypes) ? body.userTypes.map(String) : [],
+      jobTitle: body.jobTitle,
+      department: body.department,
+      mobile: body.mobile,
+      siteId: body.site || undefined,
+      status,
+      mustChangePassword: true,
+    },
+    omit: { password: true },
   });
 
   await createAuditLog({
@@ -122,11 +148,10 @@ export async function POST(req: NextRequest) {
     actorName: session.displayName,
     action: "Create",
     module: "User",
-    targetId: user._id.toString(),
+    targetId: user.id,
     targetLabel: user.displayName,
     after: { displayName: user.displayName, email: user.email, role: user.role, userTypes: user.userTypes },
   });
 
-  const { password: _, ...userData } = user.toObject();
-  return NextResponse.json({ success: true, data: userData }, { status: 201 });
+  return NextResponse.json({ success: true, data: serialize(user) }, { status: 201 });
 }
