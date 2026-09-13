@@ -26,6 +26,8 @@ function createTransport(cfg: SmtpConfig) {
     host: cfg.host,
     port: parseInt(cfg.port, 10),
     secure: cfg.secure,
+    disableFileAccess: true,
+    disableUrlAccess: true,
     auth:
       cfg.username && cfg.password
         ? { user: cfg.username, pass: cfg.password }

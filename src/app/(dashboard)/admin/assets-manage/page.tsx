@@ -368,7 +368,7 @@ export default function ManageAllAssetsPage() {
             </span>
             <input
               type="file"
-              accept=".csv,.xlsx,.xls,.txt"
+              accept=".csv,.xlsx,.txt"
               className="hidden"
               onChange={handleImport}
               disabled={importing}

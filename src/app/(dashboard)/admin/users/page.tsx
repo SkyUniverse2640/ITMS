@@ -646,7 +646,7 @@ export default function UsersPage() {
             </span>
             <input
               type="file"
-              accept=".csv,.xlsx,.xls,.txt"
+              accept=".csv,.xlsx,.txt"
               className="hidden"
               onChange={handleImportFile}
               disabled={importing}
