@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -190,19 +192,15 @@ export default function AssetSettingsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-48">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
+    return <LoadingState label="Loading asset settings" className="h-48" />;
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Asset Settings</h1>
-        <p className="text-muted-foreground">Configure asset types and states</p>
-      </div>
+      <PageHeader
+        title="Asset Settings"
+        description="Configure asset types and states"
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>

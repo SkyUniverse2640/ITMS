@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { useAuth } from "@/components/providers/auth-provider";
 import {
   SUPERADMIN_NAV,
@@ -68,22 +69,18 @@ export default function SuperAdminHubPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-start gap-3">
-        <Link href="/">
-          <Button variant="ghost" size="icon" title="Back">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Shield className="h-6 w-6" />
-            SuperAdmin
-          </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Management hub — pilih kartu fitur di bawah
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="SuperAdmin"
+        icon={<Shield className="h-6 w-6" />}
+        description="Management hub — pilih kartu fitur di bawah"
+        backAction={
+          <Link href="/">
+            <Button variant="ghost" size="icon" title="Back">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+        }
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {superItems.map((group) => {
@@ -132,7 +129,7 @@ export default function SuperAdminHubPage() {
                         "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                         "hover:bg-accent hover:text-accent-foreground",
                         active
-                          ? "bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
+                          ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
                           : "text-foreground"
                       )}
                     >

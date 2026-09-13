@@ -12,6 +12,8 @@ import { formatDateTime } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { StatusBadge, PriorityBadge } from "@/components/ui/meta-badge";
 import { ResizableDataTable, type ResizableDataTableColumn } from "@/components/ui/resizable-data-table";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadingState } from "@/components/ui/loading-state";
 
 interface TicketRow {
   _id: string;
@@ -124,17 +126,17 @@ function RequestsContent() {
 
   return (
     <div className="space-y-6 text-foreground">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
-          <p className="text-sm font-semibold text-foreground mt-0.5">{subtitle}</p>
-        </div>
-        <Link href="/tickets/new">
-          <Button>
-            <Plus className="h-4 w-4 mr-2 stroke-[2.5]" /> New Request
-          </Button>
-        </Link>
-      </div>
+      <PageHeader
+        title={title}
+        description={subtitle}
+        actions={
+          <Link href="/tickets/new">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" /> New Request
+            </Button>
+          </Link>
+        }
+      />
 
       {isTechnician && (
         <div className="grid gap-3 sm:grid-cols-3">
@@ -157,10 +159,10 @@ function RequestsContent() {
               }}
             >
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold text-foreground">{label}</CardTitle>
+                <CardTitle className="text-sm font-semibold text-foreground">{label}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold tabular-nums text-foreground">{count}</p>
+                <p className="text-3xl font-semibold tabular-nums text-foreground">{count}</p>
               </CardContent>
             </Card>
           ))}
@@ -168,9 +170,8 @@ function RequestsContent() {
       )}
 
       {!isTechnician && (
-        <h2 className="text-base font-bold tracking-tight text-foreground">
-          My Ticket History{" "}
-          <span className="font-bold text-primary">({stats.mine || total})</span>
+        <h2 className="text-base font-semibold tracking-tight text-foreground">
+          My Ticket History <span className="text-primary">({stats.mine || total})</span>
         </h2>
       )}
 
@@ -214,9 +215,7 @@ function RequestsContent() {
       <Card className="">
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center h-48">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
+            <LoadingState label="Loading tickets" className="min-h-48" />
           ) : tickets.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-2">
               <Ticket className="h-10 w-10 text-muted-foreground stroke-[2]" />
@@ -359,11 +358,7 @@ function RequestsContent() {
 export default function TicketsPage() {
   return (
     <Suspense
-      fallback={
-        <div className="flex items-center justify-center h-64">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
-      }
+      fallback={<LoadingState label="Loading requests" className="min-h-64" />}
     >
       <RequestsContent />
     </Suspense>

@@ -47,6 +47,7 @@ import { formatDate } from "@/lib/utils";
 import { StatusBadge, PriorityBadge } from "@/components/ui/meta-badge";
 import type { DashboardKey } from "@/lib/dashboards";
 import { cn } from "@/lib/utils";
+import { LoadingState } from "@/components/ui/loading-state";
 
 interface TicketRow {
   _id: string;
@@ -346,11 +347,7 @@ export default function DashboardPage() {
   const cards = showAdmin ? adminStatCards : generalStatCards;
 
   if (listLoading && !user) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <LoadingState label="Loading dashboard" className="min-h-64" />;
   }
 
   return (
@@ -366,7 +363,7 @@ export default function DashboardPage() {
                   className="group inline-flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 -ml-1.5 text-left hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 >
                   <LayoutDashboard className="h-6 w-6 text-primary shrink-0" />
-                  <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                  <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                     {activeMeta.name || "Dashboard"}
                   </h1>
                   <ChevronDown className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
@@ -468,9 +465,7 @@ export default function DashboardPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
+        <LoadingState label="Loading dashboard data" className="min-h-48" />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
@@ -483,7 +478,7 @@ export default function DashboardPage() {
                         <p className="text-sm font-semibold text-foreground">{s.label}</p>
                         <p
                           className={cn(
-                            "text-3xl font-bold mt-1 tabular-nums text-foreground",
+                            "mt-1 text-3xl font-semibold tabular-nums text-foreground",
                             typeof s.value === "string" && "text-2xl"
                           )}
                         >
@@ -504,7 +499,7 @@ export default function DashboardPage() {
           {showAdmin ? (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
                   <Shield className="h-4 w-4 text-primary" />
                   System recent tickets
                 </CardTitle>
@@ -547,7 +542,7 @@ export default function DashboardPage() {
             <div className="grid gap-6 lg:grid-cols-2">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base font-bold text-foreground">
+                  <CardTitle className="text-base font-semibold text-foreground">
                     {isTechnician ? "Recent Tickets" : "My Ticket History"}
                   </CardTitle>
                   <Link href="/tickets">
@@ -600,7 +595,7 @@ export default function DashboardPage() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base font-bold text-foreground">My Tasks</CardTitle>
+                  <CardTitle className="text-base font-semibold text-foreground">My Tasks</CardTitle>
                   <Link href="/tasks">
                     <Button variant="ghost" size="sm" className="font-semibold">
                       View All <ArrowRight className="h-4 w-4 ml-1 stroke-[2.5]" />

@@ -13,6 +13,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { AnimatedList } from "@/components/ui/animated-list";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { formatDateTime } from "@/lib/utils";
 import { ArrowLeft, Bell, Check, CheckCheck, Trash2 } from "lucide-react";
 
@@ -34,20 +37,19 @@ export default function NotificationsPage() {
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
 
   useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/notifications?limit=100");
+        const data = await res.json();
+        if (data.success) setNotifications(data.data || []);
+      } catch {
+        /* ignore */
+      }
+      setLoading(false);
+    }
+
     load();
   }, []);
-
-  async function load() {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/notifications?limit=100");
-      const data = await res.json();
-      if (data.success) setNotifications(data.data || []);
-    } catch {
-      /* ignore */
-    }
-    setLoading(false);
-  }
 
   async function markRead(ids: string[]) {
     await fetch("/api/notifications", {
@@ -126,124 +128,128 @@ export default function NotificationsPage() {
   }
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const hasMany = notifications.length > 1;
   const showBulk = notifications.length > 1;
+  const notificationItems = notifications.map((n) => {
+    const details = (
+      <>
+        <div
+          className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
+            !n.read ? "bg-primary" : "bg-transparent"
+          }`}
+        />
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{n.title}</p>
+          <p className="text-sm text-muted-foreground">{n.message}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {formatDateTime(n.createdAt)}
+          </p>
+        </div>
+      </>
+    );
+    const content = (
+      <div
+        className={`flex items-start gap-3 p-4 transition-colors hover:bg-muted/50 ${
+          !n.read ? "bg-primary/5" : ""
+        }`}
+      >
+        {n.link ? (
+          <Link
+            href={n.link}
+            className="flex min-w-0 flex-1 items-start gap-3"
+            onClick={() => markRead([n._id])}
+          >
+            {details}
+          </Link>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-start gap-3">{details}</div>
+        )}
+        <div className="flex shrink-0 items-center gap-0.5">
+          {!n.read && (
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Mark as read"
+              aria-label={`Mark ${n.title} as read`}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                markRead([n._id]);
+              }}
+            >
+              <Check className="h-4 w-4" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Delete"
+            aria-label={`Delete ${n.title}`}
+            className="text-muted-foreground hover:text-red-600"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              deleteOne(n._id);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+
+    return { key: n._id, content };
+  });
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3 min-w-0">
+      <PageHeader
+        title="Notifications"
+        description={
+          <>
+            {notifications.length} total
+            {unreadCount > 0 ? ` · ${unreadCount} unread` : ""}
+          </>
+        }
+        backAction={
           <Link href="/">
-            <Button variant="ghost" size="icon" title="Back">
+            <Button variant="ghost" size="icon" title="Back" aria-label="Back to dashboard">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
-            <p className="text-muted-foreground">
-              {notifications.length} total
-              {unreadCount > 0 ? ` · ${unreadCount} unread` : ""}
-            </p>
-          </div>
-        </div>
-
-        {/* Bulk actions when more than 1 notification */}
-        {showBulk && (
-          <div className="flex flex-wrap gap-2 shrink-0">
-            {unreadCount > 0 && (
-              <Button variant="outline" size="sm" onClick={markAll} disabled={busy}>
-                <CheckCheck className="h-4 w-4 mr-2" /> Mark all as read
+        }
+        actions={
+          showBulk ? (
+            <>
+              {unreadCount > 0 && (
+                <Button variant="outline" size="sm" onClick={markAll} disabled={busy}>
+                  <CheckCheck className="h-4 w-4 mr-2" /> Mark all as read
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950/40 dark:border-red-900"
+                onClick={() => setDeleteAllOpen(true)}
+                disabled={busy}
+              >
+                <Trash2 className="h-4 w-4 mr-2" /> Delete all messages
               </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950/40 dark:border-red-900"
-              onClick={() => setDeleteAllOpen(true)}
-              disabled={busy}
-            >
-              <Trash2 className="h-4 w-4 mr-2" /> Delete all messages
-            </Button>
-          </div>
-        )}
-      </div>
+            </>
+          ) : undefined
+        }
+      />
 
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center h-48 items-center">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
+            <LoadingState label="Loading notifications" className="h-48" />
           ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center py-16 text-muted-foreground gap-2">
               <Bell className="h-10 w-10 opacity-30" />
               <p>No notifications</p>
             </div>
           ) : (
-            <div className="divide-y">
-              {notifications.map((n) => {
-                const content = (
-                  <div
-                    className={`flex items-start gap-3 p-4 transition-colors hover:bg-muted/50 ${
-                      !n.read ? "bg-primary/5" : ""
-                    }`}
-                  >
-                    <div
-                      className={`mt-1 h-2 w-2 rounded-full shrink-0 ${
-                        !n.read ? "bg-primary" : "bg-transparent"
-                      }`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{n.title}</p>
-                      <p className="text-sm text-muted-foreground">{n.message}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatDateTime(n.createdAt)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {!n.read && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Mark as read"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            markRead([n._id]);
-                          }}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Delete"
-                        className="text-muted-foreground hover:text-red-600"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          deleteOne(n._id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-                return n.link ? (
-                  <Link
-                    key={n._id}
-                    href={n.link}
-                    onClick={() => markRead([n._id])}
-                  >
-                    {content}
-                  </Link>
-                ) : (
-                  <div key={n._id}>{content}</div>
-                );
-              })}
-            </div>
+            <AnimatedList items={notificationItems} />
           )}
         </CardContent>
       </Card>

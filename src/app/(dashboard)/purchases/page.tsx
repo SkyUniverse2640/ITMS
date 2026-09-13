@@ -23,6 +23,8 @@ import { formatDateTime } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/toast";
 import { ResizableDataTable, type ResizableDataTableColumn } from "@/components/ui/resizable-data-table";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 
 const PURCHASE_STATUS_COLORS: Record<string, string> = {
   Draft: "bg-slate-500 text-white dark:bg-slate-500 dark:text-white",
@@ -298,15 +300,15 @@ export default function PurchasesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Purchases</h1>
-          <p className="text-muted-foreground">{total} total purchase requests</p>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" /> New Purchase Request
-        </Button>
-      </div>
+      <PageHeader
+        title="Purchases"
+        description={`${total} total purchase requests`}
+        actions={
+          <Button onClick={openCreate}>
+            <Plus className="mr-2 h-4 w-4" /> New Purchase Request
+          </Button>
+        }
+      />
 
       <Card>
         <CardContent className="p-4">
@@ -351,9 +353,7 @@ export default function PurchasesPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center h-48">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
+            <LoadingState label="Loading purchases" className="min-h-48" />
           ) : filteredPurchases.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <p>No purchase requests found</p>

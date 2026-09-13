@@ -26,6 +26,8 @@ import {
   savePageSize,
 } from "@/lib/table-prefs";
 import { ColumnResizeHandle, TruncateTooltip } from "@/components/ui/truncate-tooltip";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadingState } from "@/components/ui/loading-state";
 
 interface AssetRow {
   _id: string;
@@ -332,21 +334,18 @@ export default function ManageAllAssetsPage() {
         label="Importing assets…"
         detail={importFileName || undefined}
       />
-      {/* Header — top primary actions, bottom import tools (same as Users) */}
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Manage All Assets</h1>
-            <p className="text-muted-foreground">{total} assets in inventory</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+        <PageHeader
+          title="Manage All Assets"
+          description={`${total} assets in inventory`}
+          actions={
             <Link href="/assets/new">
               <Button size="sm">
                 <Plus className="h-4 w-4 mr-1" /> New Asset
               </Button>
             </Link>
-          </div>
-        </div>
+          }
+        />
         <div className="flex flex-wrap gap-2 sm:justify-end">
           <Button
             variant="outline"
@@ -490,9 +489,7 @@ export default function ManageAllAssetsPage() {
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center h-48">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
+            <LoadingState label="Loading assets" className="h-48" />
           ) : assets.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <p>No assets found</p>
@@ -513,14 +510,14 @@ export default function ManageAllAssetsPage() {
                         onDragOver={(e) => onHeaderDragOver(e, col.id)}
                         onDragEnd={onHeaderDragEnd}
                         className={cn(
-                          "relative h-12 px-3 text-left align-middle font-bold text-foreground select-none",
+                          "relative h-12 px-3 text-left align-middle font-semibold text-foreground select-none",
                           "bg-background sticky top-0 z-[1]"
                         )}
                         style={{ width: col.width, minWidth: col.minWidth }}
                       >
                         <div className="flex items-center gap-1 pr-2">
                           <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground cursor-grab active:cursor-grabbing" />
-                          <TruncateTooltip text={col.label} className="font-bold">
+                          <TruncateTooltip text={col.label} className="font-semibold">
                             {col.label}
                           </TruncateTooltip>
                         </div>
@@ -533,7 +530,7 @@ export default function ManageAllAssetsPage() {
                   {assets.map((a) => (
                     <tr
                       key={a._id}
-                      className="border-b transition-colors cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                      className="border-b transition-colors cursor-pointer hover:bg-muted/50"
                       onClick={() => router.push(`/assets/${a._id}`)}
                     >
                       {columns.map((col) => (

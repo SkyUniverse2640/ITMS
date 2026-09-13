@@ -3,6 +3,8 @@
 import { Fragment, useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -61,10 +63,10 @@ export default function AuditTrailPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Audit Trail</h1>
-        <p className="text-muted-foreground">{total} logged actions — compliance record</p>
-      </div>
+      <PageHeader
+        title="Audit Trail"
+        description={`${total} logged actions — compliance record`}
+      />
 
       <Card>
         <CardContent className="p-4">
@@ -97,7 +99,7 @@ export default function AuditTrailPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center h-48 items-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
+            <LoadingState label="Loading audit records" className="h-48" />
           ) : logs.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">No audit records</div>
           ) : (

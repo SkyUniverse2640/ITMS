@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
@@ -77,12 +78,11 @@ export default function SiteSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Site Settings</h1>
-          <p className="text-muted-foreground">Manage organization sites and locations</p>
-        </div>
-        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditing(null); setForm({ name: "", address: "", timezone: "Asia/Jakarta" }); } }}>
+      <PageHeader
+        title="Site Settings"
+        description="Manage organization sites and locations"
+        actions={
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditing(null); setForm({ name: "", address: "", timezone: "Asia/Jakarta" }); } }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> New Site</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{editing ? "Edit Site" : "New Site"}</DialogTitle></DialogHeader>
@@ -99,8 +99,9 @@ export default function SiteSettingsPage() {
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={save}>Save</Button></DialogFooter>
           </DialogContent>
-        </Dialog>
-      </div>
+          </Dialog>
+        }
+      />
 
       <Card>
         <CardContent className="p-0">

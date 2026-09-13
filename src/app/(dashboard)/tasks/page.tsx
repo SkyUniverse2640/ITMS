@@ -26,6 +26,8 @@ import { PriorityBadge } from "@/components/ui/meta-badge";
 import { RichTextEditor, RichTextContent } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/toast";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import type { ChecklistItem } from "@/types";
 
 interface UserOption {
@@ -504,15 +506,15 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Tasks</h1>
-          <p className="text-muted-foreground">{tasks.length} tasks</p>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" /> New Task
-        </Button>
-      </div>
+      <PageHeader
+        title="Tasks"
+        description={`${tasks.length} tasks`}
+        actions={
+          <Button onClick={openCreate}>
+            <Plus className="mr-2 h-4 w-4" /> New Task
+          </Button>
+        }
+      />
 
       <Tabs value={statusFilter} onValueChange={setStatusFilter}>
         <TabsList>
@@ -524,9 +526,7 @@ export default function TasksPage() {
       </Tabs>
 
       {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        <LoadingState label="Loading tasks" className="min-h-48" />
       ) : statusFilter !== "all" ? (
         /* Single column view when filtering */
         <div className="grid gap-3">

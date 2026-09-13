@@ -29,6 +29,8 @@ import { downloadImportTemplate } from "@/lib/download-template";
 import { ImportOverlay } from "@/components/ui/import-overlay";
 import { cn, formatDateTime } from "@/lib/utils";
 import { ColumnResizeHandle, TruncateTooltip } from "@/components/ui/truncate-tooltip";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadingState } from "@/components/ui/loading-state";
 
 interface User {
   _id: string;
@@ -619,22 +621,21 @@ export default function UsersPage() {
         label="Importing users…"
         detail={importFileName || undefined}
       />
-      {/* Header — actions: top 2 primary, bottom 3 import tools */}
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Manage Users</h1>
-            <p className="text-muted-foreground">{total} total users</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={openHistory}>
-              <History className="h-4 w-4 mr-2" /> Import History
-            </Button>
-            <Button size="sm" onClick={openNew}>
-              <Plus className="h-4 w-4 mr-1" /> New User
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          title="Manage Users"
+          description={`${total} total users`}
+          actions={
+            <>
+              <Button variant="outline" size="sm" onClick={openHistory}>
+                <History className="h-4 w-4 mr-2" /> Import History
+              </Button>
+              <Button size="sm" onClick={openNew}>
+                <Plus className="h-4 w-4 mr-1" /> New User
+              </Button>
+            </>
+          }
+        />
         <div className="flex flex-wrap gap-2 sm:justify-end">
           <Button variant="outline" size="sm" onClick={downloadTemplate}>
             <Download className="h-4 w-4 mr-2" /> Download Template
@@ -734,9 +735,7 @@ export default function UsersPage() {
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center h-48">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
+            <LoadingState label="Loading users" className="h-48" />
           ) : users.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <p>No users found</p>
@@ -757,14 +756,14 @@ export default function UsersPage() {
                         onDragOver={(e) => onHeaderDragOver(e, col.id)}
                         onDragEnd={onHeaderDragEnd}
                         className={cn(
-                          "relative h-12 px-3 text-left align-middle font-bold text-foreground select-none",
+                          "relative h-12 px-3 text-left align-middle font-semibold text-foreground select-none",
                           "bg-background sticky top-0 z-[1]"
                         )}
                         style={{ width: col.width, minWidth: col.minWidth }}
                       >
                         <div className="flex items-center gap-1 pr-2">
                           <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground cursor-grab active:cursor-grabbing" />
-                          <TruncateTooltip text={col.label} className="font-bold">
+                          <TruncateTooltip text={col.label} className="font-semibold">
                             {col.label}
                           </TruncateTooltip>
                         </div>
@@ -772,7 +771,7 @@ export default function UsersPage() {
                       </th>
                     ))}
                     <th
-                      className="h-12 px-3 text-right align-middle font-bold text-foreground bg-background sticky top-0 z-[1]"
+                      className="h-12 px-3 text-right align-middle font-semibold text-foreground bg-background sticky top-0 z-[1]"
                       style={{ width: 88 }}
                     >
                       Actions
@@ -783,7 +782,7 @@ export default function UsersPage() {
                   {users.map((u) => (
                     <tr
                       key={u._id}
-                      className="border-b transition-colors hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                      className="border-b transition-colors hover:bg-muted/50"
                     >
                       {columns.map((col) => (
                         <td
@@ -1053,9 +1052,7 @@ export default function UsersPage() {
             <DialogDescription>Past imports with failed-row details</DialogDescription>
           </DialogHeader>
           {historyLoading ? (
-            <div className="flex justify-center py-10">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
+            <LoadingState label="Loading user import history" className="min-h-32 py-10" />
           ) : selectedHistory ? (
             <div className="space-y-4">
               <Button variant="outline" size="sm" onClick={() => setSelectedHistory(null)}>

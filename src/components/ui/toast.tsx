@@ -38,10 +38,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             className={cn(
-              "rounded-lg border p-4 shadow-lg animate-in slide-in-from-bottom-5 fade-in-0",
+              "ui-toast rounded-lg border p-4 shadow-lg",
               t.variant === "destructive" && "border-destructive bg-destructive text-destructive-foreground",
-              t.variant === "success" && "border-green-500 bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-100",
-              (!t.variant || t.variant === "default") && "border-border bg-background text-foreground"
+              t.variant === "success" && "border-success/40 bg-success-muted text-foreground",
+              (!t.variant || t.variant === "default") && "border-border bg-popover text-popover-foreground"
             )}
           >
             <div className="flex items-start justify-between gap-2">
