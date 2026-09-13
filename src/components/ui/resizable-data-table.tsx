@@ -127,7 +127,7 @@ export function ResizableDataTable<T, Id extends string>({
             <tr
               key={rowKey(row)}
               className={cn(
-                "border-b transition-colors hover:bg-blue-50 dark:hover:bg-blue-950/40",
+                "border-b transition-colors hover:bg-muted/60",
                 onRowClick && "cursor-pointer"
               )}
               onClick={() => onRowClick?.(row)}

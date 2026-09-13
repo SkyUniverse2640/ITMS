@@ -11,7 +11,7 @@ const sizeClass: Record<BadgeSize, string> = {
 };
 
 const baseClass =
-  "inline-flex items-center rounded-full font-semibold border border-transparent text-white";
+  "inline-flex items-center rounded-full border border-transparent font-medium text-white";
 
 /** Ticket status chip — color comes from Ticket Settings (live). */
 export function StatusBadge({

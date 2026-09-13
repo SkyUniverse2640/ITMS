@@ -11,6 +11,8 @@ import { Plus, Search, Package, Cpu, Disc, Box } from "lucide-react";
 import { ASSET_STATE_COLORS } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { ResizableDataTable, type ResizableDataTableColumn } from "@/components/ui/resizable-data-table";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadingState } from "@/components/ui/loading-state";
 
 interface AssetRow {
   _id: string;
@@ -80,26 +82,24 @@ export default function AssetsPage() {
 
   return (
     <div className="space-y-6 text-foreground">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">My Assets</h1>
-          <p className="text-sm font-semibold text-foreground mt-0.5">
-            Assets assigned to you — Hardware, Software, Consumable
-          </p>
-        </div>
-        {isSuperAdmin && (
-          <div className="flex gap-2">
-            <Link href="/admin/assets-manage">
-              <Button variant="outline">Manage All Assets</Button>
-            </Link>
-            <Link href="/assets/new">
-              <Button>
-                <Plus className="h-4 w-4 mr-2 stroke-[2.5]" /> New Asset
-              </Button>
-            </Link>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title="My Assets"
+        description="Assets assigned to you — Hardware, Software, Consumable"
+        actions={
+          isSuperAdmin ? (
+            <>
+              <Link href="/admin/assets-manage">
+                <Button variant="outline">Manage All Assets</Button>
+              </Link>
+              <Link href="/assets/new">
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" /> New Asset
+                </Button>
+              </Link>
+            </>
+          ) : undefined
+        }
+      />
 
       <div className="grid gap-3 sm:grid-cols-3">
         {(["Hardware", "Software", "Consumable"] as const).map((label) => {
@@ -116,13 +116,13 @@ export default function AssetsPage() {
               onClick={() => setCategory(label)}
             >
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-bold text-foreground">{label}</CardTitle>
+                <CardTitle className="text-sm font-semibold text-foreground">{label}</CardTitle>
                 <div className={`rounded-lg p-2 ${meta.bg}`}>
                   <Icon className={`h-4 w-4 stroke-[2.5] ${meta.color}`} />
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold tabular-nums text-foreground">{count}</p>
+                <p className="text-3xl font-semibold tabular-nums text-foreground">{count}</p>
               </CardContent>
             </Card>
           );
@@ -159,9 +159,7 @@ export default function AssetsPage() {
       <Card className="">
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center h-48">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#2563eb] border-t-transparent" />
-            </div>
+            <LoadingState label="Loading assets" className="min-h-48" />
           ) : assets.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-2">
               <Package className="h-10 w-10 text-muted-foreground stroke-[2]" />

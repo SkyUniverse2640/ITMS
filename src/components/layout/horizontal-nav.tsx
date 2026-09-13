@@ -15,6 +15,7 @@ import {
   type NavAccessMap,
 } from "@/lib/nav-config";
 import { NavIcon } from "./nav-icons";
+import { isRouteActive } from "./route-matching";
 import type { UserType } from "@/types";
 
 /**
@@ -60,18 +61,13 @@ export function HorizontalNav({
   );
 
   const showSuperAdmin = superItems.length > 0;
-  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
-
-  function isActive(href: string) {
-    if (href === "/") return pathname === "/";
-    return pathname === href || pathname.startsWith(href + "/");
-  }
+  const isAdminRoute = isRouteActive(pathname, "/admin");
 
   const itemClass = (active: boolean) =>
     cn(
       "nav-item nav-item-hbar group relative flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2",
-      "rounded-xl px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-[11px] sm:text-sm font-bold whitespace-nowrap min-w-[3.5rem] sm:min-w-[4.75rem]",
-      "transition-colors duration-150 border border-transparent touch-manipulation",
+      "rounded-xl px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-[11px] sm:text-sm font-medium whitespace-nowrap min-w-[3.5rem] sm:min-w-[4.75rem]",
+      "transition-[color,background-color,transform] duration-150 border border-transparent touch-manipulation",
       "min-h-[44px]",
       `nav-item-hbar-${placement}`,
       active && "nav-item-hbar-active"
@@ -83,7 +79,7 @@ export function HorizontalNav({
       aria-label="Main"
     >
       {general.map((item) => {
-        const active = isActive(item.href);
+        const active = isRouteActive(pathname, item.href);
         return (
           <Link
             key={item.id}
@@ -91,6 +87,7 @@ export function HorizontalNav({
             title={item.label}
             aria-label={item.label}
             aria-current={active ? "page" : undefined}
+            data-active={active}
             className={itemClass(active)}
           >
             <span className="nav-item-icon inline-flex">
@@ -107,12 +104,13 @@ export function HorizontalNav({
           title="SuperAdmin — buka halaman kartu fitur"
           aria-label="SuperAdmin"
           aria-current={isAdminRoute ? "page" : undefined}
+          data-active={isAdminRoute}
           className={itemClass(isAdminRoute)}
         >
           <span className="nav-item-icon inline-flex">
             <Shield className="h-4 w-4 stroke-[2.25]" />
           </span>
-          <span className="font-bold">SuperAdmin</span>
+          <span>SuperAdmin</span>
         </Link>
       )}
     </nav>

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ResizableDataTable, type ResizableDataTableColumn } from "@/components/ui/resizable-data-table";
@@ -107,17 +109,15 @@ export default function UserTypesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Manage Roles / User Types</h1>
-          <p className="text-muted-foreground">
-            Functional types: Requester, Technician, Approver, Auditor (multi-select per user)
-          </p>
-        </div>
-        <Button onClick={openNew}>
-          <Plus className="h-4 w-4 mr-2" /> New User Type
-        </Button>
-      </div>
+      <PageHeader
+        title="Manage Roles / User Types"
+        description="Functional types: Requester, Technician, Approver, Auditor (multi-select per user)"
+        actions={
+          <Button onClick={openNew}>
+            <Plus className="h-4 w-4 mr-2" /> New User Type
+          </Button>
+        }
+      />
 
       <Card>
         <CardHeader>
@@ -125,9 +125,7 @@ export default function UserTypesPage() {
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center h-32 items-center">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
+            <LoadingState label="Loading user types" className="min-h-32" />
           ) : (
             <ResizableDataTable
               storageKey="nexusdesk-user-types-table-columns"

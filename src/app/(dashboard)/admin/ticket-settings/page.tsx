@@ -21,6 +21,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Clock } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { notifyTicketMetaChanged } from "@/components/providers/ticket-meta-provider";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadingState } from "@/components/ui/loading-state";
 import { RowSettingsMenu } from "@/components/ui/row-settings-menu";
 import {
   needsStatusMigration,
@@ -446,21 +448,15 @@ export default function TicketSettingsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-48">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
+    return <LoadingState label="Loading ticket settings" className="h-48" />;
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Ticket Settings</h1>
-        <p className="text-muted-foreground">
-          Status, Priority Matrix, SLA, Request Type, Closure Code
-        </p>
-      </div>
+      <PageHeader
+        title="Ticket Settings"
+        description="Status, Priority Matrix, SLA, Request Type, Closure Code"
+      />
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex flex-wrap h-auto gap-1">

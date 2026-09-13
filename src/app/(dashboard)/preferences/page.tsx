@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import * as RadioGroup from "@radix-ui/react-radio-group";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { Switch } from "@/components/ui/switch";
 import {
   usePreferences,
@@ -53,18 +55,11 @@ const LAYOUTS: { value: NavLayout; label: string; description: string; icon: typ
   },
 ];
 
-/** Soft (50) / mid (600) swatches matching CSS system palettes */
-const SYSTEM_COLORS: {
-  value: SystemColor;
-  label: string;
-  soft: string;
-  mid: string;
-  hard: string;
-}[] = [
-  { value: "blue", label: "Biru", soft: "#dbeafe", mid: "#2563eb", hard: "#1d4ed8" },
-  { value: "purple", label: "Ungu", soft: "#f3e8ff", mid: "#9333ea", hard: "#7e22ce" },
-  { value: "green", label: "Hijau", soft: "#dcfce7", mid: "#16a34a", hard: "#15803d" },
-  { value: "cyan", label: "Cyan", soft: "#cffafe", mid: "#0891b2", hard: "#0e7490" },
+const SYSTEM_COLORS: { value: SystemColor; label: string }[] = [
+  { value: "blue", label: "Biru" },
+  { value: "purple", label: "Ungu" },
+  { value: "green", label: "Hijau" },
+  { value: "cyan", label: "Cyan" },
 ];
 
 export default function PreferencesPage() {
@@ -74,8 +69,12 @@ export default function PreferencesPage() {
   const [soundMuted, setSoundMuted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    setSoundMuted(isNotificationSoundMuted());
+    const frame = requestAnimationFrame(() => {
+      setMounted(true);
+      setSoundMuted(isNotificationSoundMuted());
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   function onSoundToggle(enabled: boolean) {
@@ -89,23 +88,19 @@ export default function PreferencesPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-start gap-3">
-        <Link href="/">
-          <Button variant="ghost" size="icon" title="Back">
-            <ArrowLeft className="h-4 w-4" />
+    <div className="mx-auto max-w-2xl space-y-6">
+      <PageHeader
+        title="Preferences"
+        description="Layout, theme, system color, and notification sound"
+        icon={<Settings2 className="h-6 w-6" />}
+        backAction={
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/" aria-label="Back to dashboard">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
           </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Settings2 className="h-6 w-6" />
-            Preferences
-          </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Layout, theme, system color, and notification sound
-          </p>
-        </div>
-      </div>
+        }
+      />
 
       {/* 1. Navigation Bar Layout */}
       <Card>
@@ -117,41 +112,46 @@ export default function PreferencesPage() {
           <CardDescription>Pilih posisi menu navigasi. Tersimpan di perangkat ini.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {LAYOUTS.map((l) => {
-              const Icon = l.icon;
-              const active = navLayout === l.value;
+          <RadioGroup.Root
+            name="navigation-layout"
+            value={navLayout}
+            onValueChange={(value) => setNavLayout(value as NavLayout)}
+            aria-label="Navigation bar layout"
+            className="grid gap-3 sm:grid-cols-3"
+          >
+            {LAYOUTS.map((layout) => {
+              const Icon = layout.icon;
+              const active = navLayout === layout.value;
               return (
-                <button
-                  key={l.value}
-                  type="button"
-                  onClick={() => setNavLayout(l.value)}
+                <RadioGroup.Item
+                  key={layout.value}
+                  value={layout.value}
+                  aria-label={`${layout.label}: ${layout.description}`}
                   className={cn(
-                    "pref-nav-option flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-colors cursor-pointer",
+                    "pref-nav-option flex cursor-pointer flex-col items-start gap-2 rounded-lg border p-4 text-left transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     active
-                      ? "pref-nav-option-active border-blue-400 bg-blue-50 ring-2 ring-blue-400/25 dark:bg-blue-950/40 dark:border-blue-500"
-                      : "border-border bg-background"
+                      ? "pref-nav-option-active border-primary/50 bg-accent ring-1 ring-ring/20"
+                      : "border-border bg-background hover:border-primary/30 hover:bg-accent/50"
                   )}
                 >
                   <Icon
                     className={cn(
                       "h-5 w-5 stroke-[2.25]",
-                      active ? "text-blue-600 dark:text-blue-300" : "text-foreground"
+                      active ? "text-primary" : "text-foreground"
                     )}
                   />
                   <div>
-                    <p className="text-sm font-semibold text-foreground">{l.label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{l.description}</p>
+                    <p className="text-sm font-semibold text-foreground">{layout.label}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{layout.description}</p>
                   </div>
-                  {active && (
-                    <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-300">
-                      Active
-                    </span>
-                  )}
-                </button>
+                  <RadioGroup.Indicator className="text-[11px] font-semibold text-primary">
+                    Active
+                  </RadioGroup.Indicator>
+                </RadioGroup.Item>
               );
             })}
-          </div>
+          </RadioGroup.Root>
         </CardContent>
       </Card>
 
@@ -178,7 +178,7 @@ export default function PreferencesPage() {
                 className={cn(
                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border shadow-sm",
                   mounted && theme === "dark"
-                    ? "bg-slate-800 border-slate-600 text-blue-300"
+                    ? "bg-slate-800 border-slate-600 text-primary"
                     : "bg-amber-50 border-amber-200 text-amber-500 dark:bg-amber-950/40 dark:border-amber-800"
                 )}
               >
@@ -223,7 +223,7 @@ export default function PreferencesPage() {
                 className={cn(
                   "h-[18px] w-[18px] transition-colors",
                   mounted && theme === "dark"
-                    ? "text-blue-400"
+                    ? "text-primary"
                     : "text-muted-foreground/40"
                 )}
                 aria-hidden
@@ -246,47 +246,55 @@ export default function PreferencesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {SYSTEM_COLORS.map((c) => {
-              const active = systemColor === c.value;
+          <RadioGroup.Root
+            name="system-color"
+            value={systemColor}
+            onValueChange={(value) => setSystemColor(value as SystemColor)}
+            aria-label="System color"
+            className="grid gap-3 sm:grid-cols-2"
+          >
+            {SYSTEM_COLORS.map((color) => {
+              const active = systemColor === color.value;
               return (
-                <button
-                  key={c.value}
-                  type="button"
-                  onClick={() => setSystemColor(c.value)}
-                  className={cn(
-                    "pref-nav-option flex items-center gap-3 rounded-lg border p-3 text-left transition-colors cursor-pointer",
-                    active
-                      ? "pref-nav-option-active border-blue-400 ring-2 ring-blue-400/25 bg-blue-50 dark:bg-blue-950/40 dark:border-blue-500"
-                      : "border-border bg-background"
-                  )}
-                >
-                  <span className="flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-border shadow-sm">
-                    <span className="w-1/2 h-full" style={{ backgroundColor: c.soft }} title="soft" />
-                    <span className="w-1/2 h-full" style={{ backgroundColor: c.mid }} title="hard" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                      {c.label}
-                      {active && (
-                        <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-300">
+                <div key={color.value} data-system-color={color.value}>
+                  <RadioGroup.Item
+                    value={color.value}
+                    aria-label={`${color.label}: Soft hover and solid button`}
+                    className={cn(
+                      "pref-nav-option flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-left transition-colors",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      active
+                        ? "pref-nav-option-active border-primary/50 bg-accent ring-1 ring-ring/20"
+                        : "border-border bg-background hover:border-primary/30 hover:bg-accent/50"
+                    )}
+                  >
+                    <span
+                      className="flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-border shadow-sm"
+                      aria-hidden
+                    >
+                      <span className="h-full w-1/2 bg-[var(--sys-100)]" />
+                      <span className="h-full w-1/2 bg-[var(--sys-600)]" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                        {color.label}
+                        <RadioGroup.Indicator className="text-[11px] font-semibold text-primary">
                           Active
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Soft hover · solid button
-                    </p>
-                  </div>
-                  <span
-                    className="ml-auto h-4 w-4 shrink-0 rounded-full border border-white/40 shadow"
-                    style={{ backgroundColor: c.hard }}
-                    title="primary"
-                  />
-                </button>
+                        </RadioGroup.Indicator>
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Soft hover · solid button
+                      </p>
+                    </div>
+                    <span
+                      className="ml-auto h-4 w-4 shrink-0 rounded-full border border-white/40 bg-[var(--sys-700)] shadow"
+                      aria-hidden
+                    />
+                  </RadioGroup.Item>
+                </div>
               );
             })}
-          </div>
+          </RadioGroup.Root>
         </CardContent>
       </Card>
 

@@ -49,6 +49,8 @@ import { downloadImportTemplate } from "@/lib/download-template";
 import { ImportOverlay } from "@/components/ui/import-overlay";
 import { DEFAULT_ICON, DEFAULT_LOGO } from "@/lib/public-assets";
 import { formatDateTime } from "@/lib/utils";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadingState } from "@/components/ui/loading-state";
 
 type Step = 0 | 1 | 2 | 3 | 4;
 type ImportKind = "departments" | "users";
@@ -463,11 +465,7 @@ export default function OnboardingPage() {
   }
 
   if (loading || !data) {
-    return (
-      <div className="flex justify-center h-64 items-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <LoadingState label="Loading system onboarding" className="h-64" />;
   }
 
   const steps = [
@@ -499,12 +497,10 @@ export default function OnboardingPage() {
         }
         detail={uploading !== null ? undefined : busyDetail || undefined}
       />
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">System Onboarding</h1>
-        <p className="text-muted-foreground">
-          Fresh install detected. Configure branding, departments, and users before going live.
-        </p>
-      </div>
+      <PageHeader
+        title="System Onboarding"
+        description="Fresh install detected. Configure branding, departments, and users before going live."
+      />
 
       <div className="flex flex-wrap gap-2">
         {steps.map((s) => {
@@ -1081,9 +1077,7 @@ export default function OnboardingPage() {
           </DialogHeader>
 
           {historyLoading ? (
-            <div className="flex justify-center py-10">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
+            <LoadingState label="Loading import history" className="min-h-32 py-10" />
           ) : selectedHistory ? (
             <div className="space-y-4">
               <Button variant="outline" size="sm" onClick={() => setSelectedHistory(null)}>

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import * as Accordion from "@radix-ui/react-accordion";
 import { ChevronRight, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePreferences } from "@/components/providers/preferences-provider";
 import { useBrand } from "@/components/providers/brand-provider";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   ALL_NAV,
@@ -18,6 +19,7 @@ import {
   type NavAccessMap,
 } from "@/lib/nav-config";
 import { NavIcon } from "./nav-icons";
+import { isRouteActive } from "./route-matching";
 import type { UserType } from "@/types";
 
 /** Flyout menu when sidebar is collapsed — hover to open children */
@@ -33,19 +35,30 @@ function CollapsedFlyout({
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const flyoutRef = useRef<HTMLDivElement>(null);
+  const flyoutId = `${useId().replace(/:/g, "")}-flyout`;
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [pos, setPos] = useState({ top: 0, left: 0, maxHeight: 0 });
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function updatePosition() {
+    if (!wrapRef.current) return;
+    const r = wrapRef.current.getBoundingClientRect();
+    const height = flyoutRef.current?.offsetHeight ?? 0;
+    const viewportPadding = 8;
+    const maxHeight = Math.max(0, window.innerHeight - viewportPadding * 2);
+    const top = Math.min(
+      Math.max(viewportPadding, r.top),
+      Math.max(viewportPadding, window.innerHeight - Math.min(height, maxHeight) - viewportPadding)
+    );
+    setPos({ top, left: r.right + 6, maxHeight });
+  }
 
   function openMenu() {
     if (closeTimer.current) {
       clearTimeout(closeTimer.current);
       closeTimer.current = null;
     }
-    if (wrapRef.current) {
-      const r = wrapRef.current.getBoundingClientRect();
-      setPos({ top: r.top, left: r.right + 6 });
-    }
+    updatePosition();
     setOpen(true);
   }
 
@@ -63,17 +76,12 @@ function CollapsedFlyout({
   // Reposition on scroll/resize while open
   useEffect(() => {
     if (!open) return;
-    function update() {
-      if (wrapRef.current) {
-        const r = wrapRef.current.getBoundingClientRect();
-        setPos({ top: r.top, left: r.right + 6 });
-      }
-    }
-    window.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
     return () => {
-      window.removeEventListener("scroll", update, true);
-      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
     };
   }, [open]);
 
@@ -81,9 +89,10 @@ function CollapsedFlyout({
     open && typeof document !== "undefined"
       ? createPortal(
           <div
+            id={flyoutId}
             ref={flyoutRef}
-            className="fixed z-[200] min-w-[200px] max-w-[260px] rounded-lg border border-border/80 bg-popover p-1.5 text-popover-foreground shadow-lg"
-            style={{ top: pos.top, left: pos.left }}
+            className="fixed z-[200] min-w-[200px] max-w-[260px] overflow-y-auto rounded-lg border border-border/80 bg-popover p-1.5 text-popover-foreground shadow-lg"
+            style={{ top: pos.top, left: pos.left, maxHeight: pos.maxHeight }}
             onMouseEnter={openMenu}
             onMouseLeave={scheduleClose}
             onBlur={(event) => {
@@ -127,7 +136,8 @@ function CollapsedFlyout({
                     className={cn(
                       "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
                       "text-foreground hover:bg-accent hover:text-accent-foreground",
-                      active && "bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
+                      active &&
+                        "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
                     )}
                   >
                     <NavIcon name={child.icon} className="h-3.5 w-3.5 shrink-0" />
@@ -160,9 +170,10 @@ function CollapsedFlyout({
         aria-label={item.label}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-controls={open ? flyoutId : undefined}
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={(event) => {
-          if (event.key === "ArrowDown") {
+          if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             openMenu();
             requestAnimationFrame(() =>
@@ -205,7 +216,10 @@ export function Sidebar({
   const { menuOrder } = usePreferences();
   const { appName, logo } = useBrand();
   const [navAccess, setNavAccess] = useState<NavAccessMap>(DEFAULT_NAV_ACCESS);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [accordionState, setAccordionState] = useState<{
+    pathname: string;
+    value: string | null;
+  }>({ pathname, value: null });
 
   useEffect(() => {
     fetch("/api/settings")
@@ -230,17 +244,24 @@ export function Sidebar({
   const superadmin = items.filter((i) => i.section === "superadmin");
 
   function isActive(href: string) {
-    return pathname === href || (href !== "/" && pathname.startsWith(href));
+    return isRouteActive(pathname, href);
   }
 
-  function toggleGroup(id: string) {
-    setOpenGroups((p) => ({ ...p, [id]: !p[id] }));
+  const activeGroup = items.find((item) =>
+    item.children?.some((child) => isActive(child.href))
+  )?.id;
+  const expandedGroup =
+    accordionState.pathname === pathname
+      ? accordionState.value ?? activeGroup ?? ""
+      : activeGroup ?? "";
+
+  function setExpandedGroup(value: string) {
+    setAccordionState({ pathname, value });
   }
 
   function renderItem(item: AppNavItem) {
     const hasChildren = !!item.children?.length;
     const childActive = item.children?.some((c) => isActive(c.href)) ?? false;
-    const open = openGroups[item.id] ?? childActive;
 
     // Collapsed + children → hover flyout dropdown (desktop only)
     if (hasChildren && collapsed && !mobileDrawer) {
@@ -257,26 +278,26 @@ export function Sidebar({
     // Expanded + children → accordion
     if (hasChildren && (!collapsed || mobileDrawer)) {
       return (
-        <div key={item.id}>
-          <button
-            type="button"
-            title={item.label}
-            aria-label={item.label}
-            onClick={() => toggleGroup(item.id)}
-            className={cn(
-              "nav-item nav-item-sidebar flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold",
-              "text-slate-800 dark:text-slate-100",
-              "min-h-[44px] touch-manipulation",
-              childActive && "nav-item-sidebar-active"
-            )}
-          >
-            <span className="nav-item-icon inline-flex">
-              <NavIcon name={item.icon} />
-            </span>
-            <span className="flex-1 text-left">{item.label}</span>
-            <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-90")} />
-          </button>
-          {open && (
+        <Accordion.Item key={item.id} value={item.id} className="border-0">
+          <Accordion.Header>
+            <Accordion.Trigger
+              title={item.label}
+              aria-label={item.label}
+              className={cn(
+                "nav-item nav-item-sidebar group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold",
+                "text-slate-800 dark:text-slate-100",
+                "min-h-[44px] touch-manipulation",
+                childActive && "nav-item-sidebar-active"
+              )}
+            >
+              <span className="nav-item-icon inline-flex">
+                <NavIcon name={item.icon} />
+              </span>
+              <span className="flex-1 text-left">{item.label}</span>
+              <ChevronRight className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-90" />
+            </Accordion.Trigger>
+          </Accordion.Header>
+          <Accordion.Content className="sidebar-accordion-content overflow-hidden">
             <div className="ml-4 mt-0.5 space-y-0.5 border-l border-transparent pl-2">
               {item.children!.map((child) => (
                 <Link
@@ -300,8 +321,8 @@ export function Sidebar({
                 </Link>
               ))}
             </div>
-          )}
-        </div>
+          </Accordion.Content>
+        </Accordion.Item>
       );
     }
 
@@ -377,7 +398,15 @@ export function Sidebar({
                 General
               </p>
             )}
-            <div className="space-y-1">{general.map(renderItem)}</div>
+            <Accordion.Root
+              type="single"
+              collapsible
+              value={expandedGroup}
+              onValueChange={setExpandedGroup}
+              className="space-y-1"
+            >
+              {general.map(renderItem)}
+            </Accordion.Root>
           </div>
 
           {superadmin.length > 0 && (
@@ -387,7 +416,15 @@ export function Sidebar({
                   SuperAdmin
                 </p>
               )}
-              <div className="space-y-1">{superadmin.map(renderItem)}</div>
+              <Accordion.Root
+                type="single"
+                collapsible
+                value={expandedGroup}
+                onValueChange={setExpandedGroup}
+                className="space-y-1"
+              >
+                {superadmin.map(renderItem)}
+              </Accordion.Root>
             </div>
           )}
         </nav>

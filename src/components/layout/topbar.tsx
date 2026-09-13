@@ -13,7 +13,7 @@ import {
 import { useAuth } from "@/components/providers/auth-provider";
 import { useBrand } from "@/components/providers/brand-provider";
 import { getInitials } from "@/lib/utils";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
@@ -30,11 +30,15 @@ const iconBtn =
 
 export function Topbar({
   onMenuClick,
+  menuButtonRef,
+  menuOpen = false,
   showMenu = true,
   showBrand = false,
   children,
 }: {
   onMenuClick: () => void;
+  menuButtonRef?: RefObject<HTMLButtonElement | null>;
+  menuOpen?: boolean;
   showMenu?: boolean;
   showBrand?: boolean;
   children?: ReactNode;
@@ -42,7 +46,9 @@ export function Topbar({
   const { user, logout } = useAuth();
   const { appName, logo } = useBrand();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadIncreased, setUnreadIncreased] = useState(false);
   const prevUnreadRef = useRef<number | null>(null);
+  const animationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     async function fetchNotifications() {
@@ -54,6 +60,9 @@ export function Topbar({
         const prev = prevUnreadRef.current;
         if (prev !== null && next > prev) {
           playNotificationSound();
+          if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
+          setUnreadIncreased(true);
+          animationTimerRef.current = setTimeout(() => setUnreadIncreased(false), 900);
         }
         prevUnreadRef.current = next;
         setUnreadCount(next);
@@ -68,12 +77,14 @@ export function Topbar({
     const interval = setInterval(fetchNotifications, 15000);
     return () => {
       clearInterval(interval);
+      if (animationTimerRef.current) clearTimeout(animationTimerRef.current);
       window.removeEventListener("pointerdown", unlock);
     };
   }, []);
 
   return (
     <header
+      data-app-topbar
       className={cn(
         "sticky top-0 z-30 flex items-center gap-1.5 sm:gap-2 border-0 bg-background text-foreground px-2 sm:px-4 md:px-6 shadow-none",
         "pt-[env(safe-area-inset-top,0px)]",
@@ -84,10 +95,13 @@ export function Topbar({
       <div className="flex flex-1 items-center gap-1.5 sm:gap-2 min-w-0">
         {showMenu && (
           <button
+            ref={menuButtonRef}
             type="button"
             onClick={onMenuClick}
             title="Menu"
-            aria-label="Open menu"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            aria-haspopup="dialog"
             className={cn(iconBtn, "md:hidden shrink-0 touch-manipulation")}
           >
             <Menu className="h-5 w-5 stroke-[2.25]" />
@@ -108,7 +122,7 @@ export function Topbar({
                 decoding="async"
               />
             </div>
-            <span className="font-bold text-base sm:text-xl tracking-tight truncate max-w-[5.5rem] xs:max-w-[8rem] sm:max-w-[16rem] text-foreground">
+            <span className="font-bold text-base sm:text-xl tracking-tight truncate max-w-[5.5rem] min-[400px]:max-w-[8rem] sm:max-w-[16rem] text-foreground">
               {appName}
             </span>
           </Link>
@@ -126,24 +140,46 @@ export function Topbar({
           href="/preferences"
           title="Preferences"
           aria-label="Preferences"
-          className={cn(iconBtn, "touch-manipulation")}
+          className={cn(
+            iconBtn,
+            "group touch-manipulation motion-safe:transition-transform motion-safe:duration-200 motion-safe:hover:-rotate-6 motion-safe:focus-visible:-rotate-6 motion-safe:active:rotate-12"
+          )}
         >
-          <Settings2 className="h-5 w-5 stroke-[2.25]" />
+          <Settings2 className="h-5 w-5 stroke-[2.25] motion-safe:transition-transform motion-safe:duration-200 motion-safe:group-hover:rotate-45 motion-safe:group-focus-visible:rotate-45 motion-safe:group-active:rotate-90" />
         </Link>
 
         <Link
           href="/notifications"
           title="Notifications"
-          aria-label="Notifications"
+          aria-label={
+            unreadCount > 0
+              ? `Notifications, ${unreadCount} unread`
+              : "Notifications, no unread notifications"
+          }
           className={cn(iconBtn, "relative touch-manipulation")}
           onClick={() => unlockNotificationSound()}
         >
-          <Bell className="h-5 w-5 stroke-[2.25]" />
+          <Bell
+            className={cn(
+              "h-5 w-5 stroke-[2.25]",
+              unreadIncreased && "notification-bell-increase"
+            )}
+          />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-5 min-w-5 px-1 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
+            <span
+              className={cn(
+                "absolute -top-1 -right-1 flex h-5 min-w-5 px-1 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white",
+                unreadIncreased && "notification-badge-enter"
+              )}
+            >
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
+          <span className="sr-only" aria-live="polite" aria-atomic="true">
+            {unreadCount > 0
+              ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+              : "No unread notifications"}
+          </span>
         </Link>
 
         <DropdownMenu>
@@ -152,7 +188,7 @@ export function Topbar({
               type="button"
               aria-label="Account menu"
               className={
-                "inline-flex items-center gap-2 rounded-md border-0 bg-background px-1.5 sm:px-2 py-1.5 text-foreground cursor-pointer touch-manipulation " +
+                "inline-flex group items-center gap-2 rounded-md border-0 bg-background px-1.5 sm:px-2 py-1.5 text-foreground cursor-pointer touch-manipulation " +
                 "hover:bg-accent hover:text-accent-foreground " +
                 "dark:hover:bg-accent dark:hover:text-accent-foreground " +
                 "min-h-[40px]"
@@ -167,7 +203,7 @@ export function Topbar({
                 <span className="text-sm font-bold text-foreground">{user?.displayName}</span>
                 <span className="text-xs font-semibold text-primary">{user?.role}</span>
               </div>
-              <ChevronDown className="h-4 w-4 shrink-0 hidden md:block stroke-[2.5]" />
+              <ChevronDown className="h-4 w-4 shrink-0 hidden md:block stroke-[2.5] motion-safe:transition-transform motion-safe:duration-200 group-data-[state=open]:rotate-180" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

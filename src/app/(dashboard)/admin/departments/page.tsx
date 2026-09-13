@@ -38,6 +38,8 @@ import {
   savePageSize,
 } from "@/lib/table-prefs";
 import { ColumnResizeHandle, TruncateTooltip } from "@/components/ui/truncate-tooltip";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadingState } from "@/components/ui/loading-state";
 import {
   DEPT_ROLE_LABELS,
   emptyRoles,
@@ -561,11 +563,7 @@ export default function DepartmentsPage() {
   const tableMinWidth = columns.reduce((s, c) => s + c.width, 0) + 88;
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-48">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
+    return <LoadingState label="Loading departments" className="h-48" />;
   }
 
   return (
@@ -577,24 +575,26 @@ export default function DepartmentsPage() {
         detail={importFileName || undefined}
       />
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Manage Department</h1>
-            <p className="text-muted-foreground">
-              Departments for users (dropdown + import validation).
+        <PageHeader
+          title="Manage Departments"
+          description={
+            <>
+              Departments for users and import validation.
               <br />
               {total} shown{appliedSearch ? " (filtered)" : ""}.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={openHistory}>
-              <History className="h-4 w-4 mr-2" /> Import History
-            </Button>
-            <Button size="sm" onClick={openNew}>
-              <Plus className="h-4 w-4 mr-1" /> New Department
-            </Button>
-          </div>
-        </div>
+            </>
+          }
+          actions={
+            <>
+              <Button variant="outline" size="sm" onClick={openHistory}>
+                <History className="h-4 w-4 mr-2" /> Import History
+              </Button>
+              <Button size="sm" onClick={openNew}>
+                <Plus className="h-4 w-4 mr-1" /> New Department
+              </Button>
+            </>
+          }
+        />
         <div className="flex flex-wrap gap-2 sm:justify-end">
           <Button variant="outline" size="sm" onClick={downloadTemplate}>
             <Download className="h-4 w-4 mr-2" /> Download Template
@@ -712,14 +712,14 @@ export default function DepartmentsPage() {
                         onDragOver={(e) => onHeaderDragOver(e, col.id)}
                         onDragEnd={onHeaderDragEnd}
                         className={cn(
-                          "relative h-12 px-3 text-left align-middle font-bold text-foreground select-none",
+                          "relative h-12 px-3 text-left align-middle font-semibold text-foreground select-none",
                           "bg-background sticky top-0 z-[1]"
                         )}
                         style={{ width: col.width, minWidth: col.minWidth }}
                       >
                         <div className="flex items-center gap-1 pr-2">
                           <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground cursor-grab active:cursor-grabbing" />
-                          <TruncateTooltip text={col.label} className="font-bold">
+                          <TruncateTooltip text={col.label} className="font-semibold">
                             {col.label}
                           </TruncateTooltip>
                         </div>
@@ -727,7 +727,7 @@ export default function DepartmentsPage() {
                       </th>
                     ))}
                     <th
-                      className="h-12 px-3 text-right align-middle font-bold text-foreground bg-background sticky top-0 z-[1]"
+                      className="h-12 px-3 text-right align-middle font-semibold text-foreground bg-background sticky top-0 z-[1]"
                       style={{ width: 88 }}
                     >
                       Actions
@@ -741,7 +741,7 @@ export default function DepartmentsPage() {
                     const colSpan = columns.length + 1;
                     return (
                       <Fragment key={d.id}>
-                        <tr className="border-b transition-colors hover:bg-blue-50 dark:hover:bg-blue-950/40">
+                        <tr className="border-b transition-colors hover:bg-muted/50">
                           {columns.map((col, colIdx) => (
                             <td
                               key={col.id}
@@ -969,9 +969,7 @@ export default function DepartmentsPage() {
             <DialogDescription>Past imports with failed-row details</DialogDescription>
           </DialogHeader>
           {historyLoading ? (
-            <div className="flex justify-center py-10">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
+            <LoadingState label="Loading department import history" className="min-h-32 py-10" />
           ) : selectedHistory ? (
             <div className="space-y-4">
               <Button variant="outline" size="sm" onClick={() => setSelectedHistory(null)}>

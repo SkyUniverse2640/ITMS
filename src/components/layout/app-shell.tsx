@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { usePathname } from "next/navigation";
+import * as Dialog from "@radix-ui/react-dialog";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { HorizontalNav } from "./horizontal-nav";
@@ -13,17 +14,49 @@ const CONSTRAINED_DESKTOP_QUERY = "(min-width: 768px) and (max-width: 1279px)";
 
 type SidebarPreference = "collapsed" | "expanded" | null;
 
+function MobileDrawer({
+  open,
+  onOpenChange,
+  triggerRef,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  triggerRef: RefObject<HTMLButtonElement | null>;
+}) {
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange} modal>
+      <Dialog.Portal>
+        <Dialog.Overlay className="mobile-drawer-overlay fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px] md:hidden" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            triggerRef.current?.focus();
+          }}
+          className="mobile-drawer-content fixed inset-y-0 left-0 z-50 w-[min(18rem,88vw)] shadow-xl outline-none md:hidden"
+        >
+          <Dialog.Title className="sr-only">Main navigation</Dialog.Title>
+          <Sidebar
+            collapsed={false}
+            onToggle={() => onOpenChange(false)}
+            onNavigate={() => onOpenChange(false)}
+            mobileDrawer
+          />
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { navLayout, mounted } = usePreferences();
   const pathname = usePathname();
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [sidebarPreference, setSidebarPreference] = useState<SidebarPreference>(null);
   const [autoSidebarCollapsed, setAutoSidebarCollapsed] = useState(false);
   const [mobileDrawer, setMobileDrawer] = useState({ pathname, open: false });
 
   const layout = mounted ? navLayout : "sidebar";
-  if (mobileDrawer.pathname !== pathname) {
-    setMobileDrawer({ pathname, open: false });
-  }
   const mobileOpen = mobileDrawer.pathname === pathname && mobileDrawer.open;
   const sidebarCollapsed =
     sidebarPreference === "collapsed" ||
@@ -50,23 +83,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 768px)");
+    const closeDesktopDrawer = (event: MediaQueryListEvent) => {
+      if (event.matches) setMobileDrawer({ pathname, open: false });
+    };
+    mediaQuery.addEventListener("change", closeDesktopDrawer);
+    return () => mediaQuery.removeEventListener("change", closeDesktopDrawer);
+  }, [pathname]);
+
   function toggleSidebar() {
     const preference = sidebarCollapsed ? "expanded" : "collapsed";
     setSidebarPreference(preference);
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(preference === "collapsed"));
   }
-
-  // Lock body scroll while mobile drawer is open
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.classList.add("mobile-drawer-open");
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.classList.remove("mobile-drawer-open");
-      document.body.style.overflow = prev;
-    };
-  }, [mobileOpen]);
 
   // Bottom bar: logo + name in topbar; nav at bottom (mobile-friendly)
   if (layout === "bottom") {
@@ -91,7 +121,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-dvh min-h-screen bg-background flex flex-col">
         <Topbar
-          onMenuClick={() => setMobileDrawer((drawer) => ({ pathname, open: !drawer.open }))}
+          onMenuClick={() => setMobileDrawer({ pathname, open: true })}
+          menuButtonRef={menuButtonRef}
+          menuOpen={mobileOpen}
           showMenu
           showBrand
         >
@@ -100,24 +132,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </Topbar>
 
-        {/* Mobile: slide-over full nav (same links as desktop top bar + SuperAdmin) */}
-        {mobileOpen && (
-          <>
-            <div
-              className="fixed inset-0 z-40 bg-black/50 md:hidden"
-              onClick={() => setMobileDrawer({ pathname, open: false })}
-              aria-hidden
-            />
-            <div className="fixed inset-y-0 left-0 z-50 w-[min(18rem,88vw)] md:hidden shadow-xl">
-              <Sidebar
-                collapsed={false}
-                onToggle={() => setMobileDrawer({ pathname, open: false })}
-                onNavigate={() => setMobileDrawer({ pathname, open: false })}
-                mobileDrawer
-              />
-            </div>
-          </>
-        )}
+        <MobileDrawer
+          open={mobileOpen}
+          onOpenChange={(open) => setMobileDrawer({ pathname, open })}
+          triggerRef={menuButtonRef}
+        />
 
         <main className="flex-1 p-3 sm:p-4 md:p-6 max-w-7xl mx-auto w-full min-w-0 main-scroll-x">
           {children}
@@ -136,28 +155,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
       </div>
 
-      {mobileOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-black/50 md:hidden"
-            onClick={() => setMobileDrawer({ pathname, open: false })}
-            aria-hidden
-          />
-          <div
-            className={cn(
-              "fixed inset-y-0 left-0 z-50 w-[min(18rem,88vw)] md:hidden",
-              "shadow-xl animate-in slide-in-from-left duration-200"
-            )}
-          >
-            <Sidebar
-              collapsed={false}
-              onToggle={() => setMobileDrawer({ pathname, open: false })}
-              onNavigate={() => setMobileDrawer({ pathname, open: false })}
-              mobileDrawer
-            />
-          </div>
-        </>
-      )}
+      <MobileDrawer
+        open={mobileOpen}
+        onOpenChange={(open) => setMobileDrawer({ pathname, open })}
+        triggerRef={menuButtonRef}
+      />
 
       <div
         className={cn(
@@ -166,9 +168,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       >
         <Topbar
-          onMenuClick={() =>
-            setMobileDrawer((drawer) => ({ pathname, open: !drawer.open }))
-          }
+          onMenuClick={() => setMobileDrawer({ pathname, open: true })}
+          menuButtonRef={menuButtonRef}
+          menuOpen={mobileOpen}
         />
         <main className="p-3 sm:p-4 md:p-6 min-w-0 main-scroll-x w-full max-w-full">
           {children}

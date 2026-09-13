@@ -18,9 +18,9 @@ const SelectTrigger = React.forwardRef<
     className={cn(
       "form-control-chrome",
       "flex h-10 w-full items-center justify-between rounded-md bg-background px-3 py-2 text-sm",
-      "ring-offset-background placeholder:text-muted-foreground cursor-pointer",
-      "hover:bg-blue-50/60 dark:hover:bg-blue-950/30",
-      "focus:outline-none data-[state=open]:border-[var(--form-border-focus)]",
+      "cursor-pointer text-foreground ring-offset-background placeholder:text-muted-foreground",
+      "hover:bg-muted/60",
+      "focus:outline-none",
       "disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
       className
     )}
@@ -42,7 +42,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+        "ui-motion-surface relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md",
         position === "popper" && "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
         className
       )}

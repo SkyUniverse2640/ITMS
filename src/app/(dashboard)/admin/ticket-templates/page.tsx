@@ -34,6 +34,8 @@ import { useToast } from "@/components/ui/toast";
 import { RowSettingsMenu } from "@/components/ui/row-settings-menu";
 import { DEPT_ROLE_LABELS, type DeptRoleLabel } from "@/lib/department-roles";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadingState } from "@/components/ui/loading-state";
 
 interface Category {
   id: string;
@@ -527,26 +529,20 @@ export default function TicketTemplatesPage() {
   const activeCat = categories.find((c) => c.name === activeCategory);
 
   if (loading) {
-    return (
-      <div className="flex justify-center h-64 items-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <LoadingState label="Loading ticket templates" className="h-64" />;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Ticket Template</h1>
-          <p className="text-muted-foreground">
-            Help requesters create tickets from prepared templates
-          </p>
-        </div>
-        <Button type="button" onClick={openNewCategory}>
-          <Plus className="h-4 w-4 mr-2" /> New Category
-        </Button>
-      </div>
+      <PageHeader
+        title="Ticket Templates"
+        description="Help requesters create tickets from prepared templates"
+        actions={
+          <Button type="button" onClick={openNewCategory}>
+            <Plus className="h-4 w-4 mr-2" /> New Category
+          </Button>
+        }
+      />
 
       {categories.length === 0 ? (
         <Card>
@@ -573,8 +569,8 @@ export default function TicketTemplatesPage() {
                     key={c.id}
                     className={
                       selected
-                        ? "flex items-center gap-0.5 rounded-lg bg-blue-600 text-white shadow-sm"
-                        : "flex items-center gap-0.5 rounded-lg hover:bg-accent"
+                        ? "flex items-center gap-0.5 rounded-md bg-primary text-primary-foreground"
+                        : "flex items-center gap-0.5 rounded-md hover:bg-accent"
                     }
                   >
                     <button
@@ -583,8 +579,8 @@ export default function TicketTemplatesPage() {
                       onClick={() => setActiveCategory(c.name)}
                       className={
                         selected
-                          ? "min-w-0 flex-1 text-left rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-150 cursor-pointer text-white"
-                          : "min-w-0 flex-1 text-left rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 cursor-pointer text-slate-700 dark:text-slate-200"
+                          ? "min-w-0 flex-1 cursor-pointer rounded-md px-3 py-2.5 text-left text-sm font-semibold text-primary-foreground"
+                          : "min-w-0 flex-1 cursor-pointer rounded-md px-3 py-2.5 text-left text-sm font-medium text-foreground"
                       }
                     >
                       <span className="block truncate">{c.name}</span>
@@ -604,7 +600,7 @@ export default function TicketTemplatesPage() {
                     <div
                       className={
                         selected
-                          ? "shrink-0 pr-1 [&_button]:text-white [&_button]:hover:bg-blue-500 [&_button]:hover:text-white"
+                          ? "shrink-0 pr-1 [&_button]:text-primary-foreground [&_button]:hover:bg-primary-foreground/10 [&_button]:hover:text-primary-foreground"
                           : "shrink-0 pr-1"
                       }
                       onClick={(e) => e.stopPropagation()}

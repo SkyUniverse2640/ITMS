@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { LoadingState } from "@/components/ui/loading-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { Switch } from "@/components/ui/switch";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useToast } from "@/components/ui/toast";
@@ -56,26 +58,20 @@ export default function AcknowledgmentPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex justify-center h-64 items-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <LoadingState label="Loading acknowledgment settings" className="h-64" />;
   }
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Acknowledgment Form</h1>
-          <p className="text-muted-foreground">
-            Auto-send email when an asset is assigned to a user
-          </p>
-        </div>
-        <Button onClick={save} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" /> {saving ? "Saving..." : "Save"}
-        </Button>
-      </div>
+      <PageHeader
+        title="Acknowledgment Form"
+        description="Auto-send email when an asset is assigned to a user"
+        actions={
+          <Button onClick={save} disabled={saving}>
+            <Save className="h-4 w-4 mr-2" /> {saving ? "Saving..." : "Save"}
+          </Button>
+        }
+      />
 
       <Card>
         <CardHeader>
