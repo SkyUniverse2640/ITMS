@@ -189,6 +189,12 @@
       "type": "file"
     },
     {
+      "path": "package.json",
+      "accessCount": 21,
+      "lastAccessed": 1789257349775,
+      "type": "file"
+    },
+    {
       "path": "src/components/layout/sidebar.tsx",
       "accessCount": 19,
       "lastAccessed": 1789253146253,
@@ -201,9 +207,15 @@
       "type": "file"
     },
     {
-      "path": "package.json",
-      "accessCount": 9,
-      "lastAccessed": 1789253789524,
+      "path": "src/lib/send-email.ts",
+      "accessCount": 7,
+      "lastAccessed": 1789257305164,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/parse-spreadsheet.ts",
+      "accessCount": 7,
+      "lastAccessed": 1789257333759,
       "type": "file"
     },
     {
@@ -231,6 +243,18 @@
       "type": "file"
     },
     {
+      "path": "src/lib/sanitize-html.ts",
+      "accessCount": 5,
+      "lastAccessed": 1789257354147,
+      "type": "file"
+    },
+    {
+      "path": "src/components/ui/rich-text-editor.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1789257410573,
+      "type": "file"
+    },
+    {
       "path": "src/components/layout/horizontal-nav.tsx",
       "accessCount": 4,
       "lastAccessed": 1789252402726,
@@ -240,6 +264,36 @@
       "path": "context.md",
       "accessCount": 4,
       "lastAccessed": 1789253585467,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/parse-spreadsheet.test.ts",
+      "accessCount": 4,
+      "lastAccessed": 1789257342231,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(dashboard)/admin/users/page.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1789257349987,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(dashboard)/admin/assets-manage/page.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1789257350255,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(dashboard)/admin/departments/page.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1789257350549,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(dashboard)/admin/onboarding/page.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1789257350696,
       "type": "file"
     },
     {
@@ -258,6 +312,18 @@
       "path": "prisma/seed.ts",
       "accessCount": 2,
       "lastAccessed": 1789253817186,
+      "type": "file"
+    },
+    {
+      "path": "next.config.ts",
+      "accessCount": 2,
+      "lastAccessed": 1789256434282,
+      "type": "file"
+    },
+    {
+      "path": "package-lock.json",
+      "accessCount": 2,
+      "lastAccessed": 1789257393214,
       "type": "file"
     },
     {
@@ -288,6 +354,72 @@
       "path": "src/lib/seed.ts",
       "accessCount": 1,
       "lastAccessed": 1789253828502,
+      "type": "file"
+    },
+    {
+      "path": "postcss.config.mjs",
+      "accessCount": 1,
+      "lastAccessed": 1789256106787,
+      "type": "file"
+    },
+    {
+      "path": "Dockerfile",
+      "accessCount": 1,
+      "lastAccessed": 1789256448333,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/serialize.test.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789256811690,
+      "type": "file"
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1789257331900,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/users/import/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789257371737,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/assets/import/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789257372056,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/departments/import/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789257372205,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/users/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789257409687,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/settings/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789257410010,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/brand/upload/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789257410135,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/auth.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789257410629,
       "type": "file"
     }
   ],
